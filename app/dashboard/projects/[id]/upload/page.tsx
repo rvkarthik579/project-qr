@@ -36,6 +36,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [currentStep, setCurrentStep] = useState(0)
   const [dragging, setDragging] = useState(false)
+  const [processingFiles, setProcessingFiles] = useState(false)
   
   // Step 1: Files
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
@@ -69,64 +70,82 @@ export default function UploadPage({ params }: { params: { id: string } }) {
   async function buildTreeFromZip(file: File): Promise<TreeNode[]> {
     const zip = new JSZip()
     const contents = await zip.loadAsync(file)
-    const nodes: TreeNode[] = []
     const folderMap = new Map<string, TreeNode>()
+    const rootNodes: TreeNode[] = []
 
     const entries = Object.keys(contents.files)
-      .filter(path => !contents.files[path].dir && !path.startsWith('__MACOSX'))
+      .filter(path => !contents.files[path].dir && 
+        !path.startsWith('__MACOSX') &&
+        !path.includes('.DS_Store'))
       .sort()
 
-    for (const path of entries) {
-      const parts = path.split('/')
-      const fileName = parts[parts.length - 1]
-      if (!fileName) continue
+    // Extract ALL files in parallel instead of sequentially
+    const fileObjects = await Promise.all(
+      entries.map(async (path) => {
+        const parts = path.split('/')
+        const fileName = parts[parts.length - 1]
+        if (!fileName) return null
+        const blob = await contents.files[path].async('blob')
+        return { path, parts, fileName, file: new File([blob], fileName) }
+      })
+    )
 
-      const blob = await contents.files[path].async('blob')
-      const fileObj = new File([blob], fileName)
+    for (const item of fileObjects) {
+      if (!item) continue
+      const { path, parts, fileName, file: fileObj } = item
 
       if (parts.length === 1) {
-        nodes.push({ name: fileName, path, type: 'file', file: fileObj })
+        rootNodes.push({ name: fileName, path, type: 'file', file: fileObj })
       } else {
-        // Build folder hierarchy
+        let parentList = rootNodes
         let currentPath = ''
-        let parentNodes = nodes
         for (let i = 0; i < parts.length - 1; i++) {
-          currentPath += (i > 0 ? '/' : '') + parts[i]
+          currentPath = i === 0 ? parts[i] : currentPath + '/' + parts[i]
           let folder = folderMap.get(currentPath)
           if (!folder) {
-            folder = { name: parts[i], path: currentPath, type: 'folder', children: [] }
+            folder = { 
+              name: parts[i], 
+              path: currentPath, 
+              type: 'folder', 
+              children: [] 
+            }
             folderMap.set(currentPath, folder)
-            parentNodes.push(folder)
+            parentList.push(folder)
           }
-          parentNodes = folder.children!
+          parentList = folder.children!
         }
-        parentNodes.push({ name: fileName, path, type: 'file', file: fileObj })
+        parentList.push({ name: fileName, path, type: 'file', file: fileObj })
       }
     }
 
-    return nodes
+    return rootNodes
   }
 
   async function processFiles(files: File[]) {
-    const validFiles = files.filter(f => {
-      const ext = '.' + f.name.split('.').pop()?.toLowerCase()
-      return ACCEPTED_TYPES.includes(ext) && f.size <= MAX_FILE_SIZE
-    })
+    setProcessingFiles(true)
+    try {
+      const validFiles = files.filter(f => {
+        const ext = '.' + f.name.split('.').pop()?.toLowerCase()
+        return ACCEPTED_TYPES.includes(ext) && f.size <= MAX_FILE_SIZE
+      })
 
-    if (validFiles.length === 0) return
-    setUploadedFiles(validFiles)
+      if (validFiles.length === 0) return
+      setUploadedFiles(validFiles)
 
-    const allNodes: TreeNode[] = []
-    for (const file of validFiles) {
-      const ext = '.' + file.name.split('.').pop()?.toLowerCase()
-      if (ext === '.zip') {
-        const zipNodes = await buildTreeFromZip(file)
-        allNodes.push({ name: file.name, path: file.name, type: 'folder', children: zipNodes })
-      } else {
-        allNodes.push({ name: file.name, path: file.name, type: 'file', file })
+      const allNodes: TreeNode[] = []
+      for (const file of validFiles) {
+        const ext = '.' + file.name.split('.').pop()?.toLowerCase()
+        if (ext === '.zip') {
+          const zipNodes = await buildTreeFromZip(file)
+          allNodes.push({ name: file.name, path: file.name, type: 'folder', children: zipNodes })
+        } else {
+          allNodes.push({ name: file.name, path: file.name, type: 'file', file })
+        }
       }
+      setTreeNodes(allNodes)
+    } finally {
+      setProcessingFiles(false)
     }
-    setTreeNodes(allNodes)
   }
 
   const handleDrop = useCallback(async (e: React.DragEvent) => {
@@ -388,6 +407,22 @@ export default function UploadPage({ params }: { params: { id: string } }) {
                 }}
               />
             </div>
+
+            {processingFiles && (
+              <div style={{ 
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '12px 16px',
+                background: 'rgba(108,99,255,0.06)',
+                border: '1px solid rgba(108,99,255,0.15)',
+                borderRadius: 8,
+                fontFamily: 'DM Mono, monospace',
+                fontSize: '0.8125rem',
+                color: 'var(--accent-light)'
+              }}>
+                <div className="skeleton" style={{ width: 16, height: 16, borderRadius: '50%' }} />
+                Extracting files from ZIP...
+              </div>
+            )}
 
             {/* Uploaded files list */}
             {uploadedFiles.length > 0 && (

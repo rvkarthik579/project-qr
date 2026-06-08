@@ -891,3 +891,218 @@ h1, h2, h3 {
     padding: 12px 20px;
   }
 }
+
+/* File Tree */
+.file-tree-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+  border-radius: 6px;
+  margin: 1px 4px;
+  transition: background 150ms ease;
+  min-height: 36px;
+}
+
+.file-tree-item:hover {
+  background: rgba(108, 99, 255, 0.08);
+}
+
+.file-tree-item.selected {
+  background: rgba(108, 99, 255, 0.12);
+  border: 1px solid rgba(108, 99, 255, 0.2);
+}
+
+.file-tree-chevron {
+  display: flex;
+  align-items: center;
+  transition: transform 200ms ease;
+  flex-shrink: 0;
+}
+
+.file-tree-chevron.open {
+  transform: rotate(90deg);
+}
+
+/* Dropzone */
+.dropzone {
+  border: 2px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 40px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 200ms ease;
+  background: rgba(108, 99, 255, 0.02);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.dropzone:hover,
+.dropzone.active {
+  border-color: var(--accent);
+  background: rgba(108, 99, 255, 0.06);
+}
+
+/* Step Indicator */
+.step-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.step-number {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-hover);
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  transition: all 200ms ease;
+  flex-shrink: 0;
+}
+
+.step.active .step-number {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.step.completed .step-number {
+  background: rgba(61, 255, 160, 0.1);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.step-label {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  transition: color 200ms ease;
+}
+
+.step.active .step-label {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.step.completed .step-label {
+  color: var(--success);
+}
+
+.step-connector {
+  flex: 1;
+  height: 2px;
+  background: var(--border);
+  min-width: 20px;
+  max-width: 48px;
+  margin: 0 8px;
+}
+
+/* Animations */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; max-height: 0; transform: translateY(-8px); }
+  to { opacity: 1; max-height: 1000px; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-fade-up {
+  animation: fadeUp 200ms ease forwards;
+}
+
+.animate-slide-down {
+  animation: slideDown 200ms ease forwards;
+  overflow: hidden;
+}
+
+/* Toggle */
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: all 200ms ease;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 2px;
+  top: 2px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 200ms ease;
+}
+
+.toggle input:checked + .toggle-slider {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.toggle input:checked + .toggle-slider::before {
+  transform: translateX(20px);
+}
+
+/* Skeleton loader */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-hover) 25%,
+    rgba(255,255,255,0.05) 50%,
+    var(--bg-hover) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+}
+
+/* Glow button */
+.animate-glow {
+  box-shadow: 0 0 20px rgba(108, 99, 255, 0.3);
+  transition: box-shadow 200ms ease;
+}
+
+.animate-glow:hover {
+  box-shadow: 0 0 32px rgba(108, 99, 255, 0.5);
+}
