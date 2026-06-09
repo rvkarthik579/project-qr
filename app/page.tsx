@@ -12,6 +12,26 @@ export default function LandingPage() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible')
+          }
+        })
+      },
+      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
+    )
+
+    const elements = document.querySelectorAll(
+      '.reveal, .reveal-left, .reveal-scale'
+    )
+    elements.forEach((el) => observer.observe(el))
+
+    return () => observer.disconnect()
+  }, [])
+
   return (
     <div style={{
       background: '#07080f',
@@ -51,7 +71,13 @@ export default function LandingPage() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
-          <a href="#how-it-works" style={{ color: '#9896b8', textDecoration: 'none', fontSize: 14, transition: 'color 150ms' }}
+          <a href="#how-it-works" onClick={(e) => {
+            e.preventDefault()
+            document.getElementById('how-it-works')?.scrollIntoView({ 
+              behavior: 'smooth',
+              block: 'start'
+            })
+          }} style={{ color: '#9896b8', textDecoration: 'none', fontSize: 14, transition: 'color 150ms' }}
             onMouseEnter={e => (e.target as HTMLElement).style.color = '#f0eeff'}
             onMouseLeave={e => (e.target as HTMLElement).style.color = '#9896b8'}>
             How it works
@@ -90,11 +116,12 @@ export default function LandingPage() {
           position: 'absolute', inset: 0, pointerEvents: 'none',
           backgroundImage: 'linear-gradient(rgba(108,99,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(108,99,255,0.04) 1px, transparent 1px)',
           backgroundSize: '60px 60px',
-          maskImage: 'radial-gradient(ellipse 80% 60% at 50% 0%, black, transparent)'
+          maskImage: 'radial-gradient(ellipse 80% 60% at 50% 0%, black, transparent)',
+          animation: 'gridFade 2s ease forwards'
         }} />
 
         {/* Badge */}
-        <div style={{
+        <div className="hero-badge-anim" style={{
           display: 'inline-flex', alignItems: 'center', gap: 8,
           background: 'rgba(108,99,255,0.08)',
           border: '1px solid rgba(108,99,255,0.2)',
@@ -115,7 +142,7 @@ export default function LandingPage() {
         </div>
 
         {/* Headline */}
-        <h1 style={{
+        <h1 className="hero-title-anim" style={{
           fontFamily: 'Geist, sans-serif',
           fontSize: 'clamp(48px, 8vw, 96px)',
           fontWeight: 800,
@@ -125,12 +152,21 @@ export default function LandingPage() {
           position: 'relative'
         }}>
           Industrial reports.<br/>
-          <span style={{ color: '#a89cff' }}>Zero paper.</span><br/>
+          <span style={{
+            background: 'linear-gradient(135deg, #a89cff, #6c63ff, #a89cff)',
+            backgroundSize: '200% 200%',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            animation: 'gradientShift 4s ease infinite'
+          }}>
+            Zero paper.
+          </span><br/>
           <span style={{ color: '#f0c060' }}>Instant access.</span>
         </h1>
 
         {/* Subheading */}
-        <p style={{
+        <p className="hero-sub-anim" style={{
           fontSize: 18, color: '#9896b8',
           maxWidth: 520, lineHeight: 1.7,
           marginBottom: 16, fontWeight: 300,
@@ -142,22 +178,23 @@ export default function LandingPage() {
         </p>
 
         {/* Social proof */}
-        <p style={{
+        <p className="hero-sub-anim" style={{
           fontFamily: 'JetBrains Mono, monospace',
           fontSize: 11, color: '#5e5c80',
           letterSpacing: '0.1em', marginBottom: 48,
-          textTransform: 'uppercase', position: 'relative'
+          textTransform: 'uppercase', position: 'relative',
+          animationDelay: '0.4s'
         }}>
           Used in 12+ industrial facilities · Zero breaches
         </p>
 
         {/* CTAs */}
-        <div style={{
+        <div className="hero-cta-anim" style={{
           display: 'flex', gap: 14, alignItems: 'center',
           justifyContent: 'center', flexWrap: 'wrap',
           marginBottom: 80, position: 'relative'
         }}>
-          <Link href="/register" style={{
+          <Link href="/register" className="btn-glow" style={{
             display: 'inline-flex', alignItems: 'center', gap: 8,
             background: '#6c63ff', color: 'white',
             padding: '15px 32px', borderRadius: 6,
@@ -167,7 +204,13 @@ export default function LandingPage() {
           }}>
             Get Started Free →
           </Link>
-          <a href="#how-it-works" style={{
+          <a href="#how-it-works" onClick={(e) => {
+            e.preventDefault()
+            document.getElementById('how-it-works')?.scrollIntoView({ 
+              behavior: 'smooth',
+              block: 'start'
+            })
+          }} style={{
             display: 'inline-flex', alignItems: 'center', gap: 8,
             background: 'transparent', color: '#9896b8',
             border: '1px solid rgba(255,255,255,0.12)',
@@ -180,7 +223,7 @@ export default function LandingPage() {
         </div>
 
         {/* Stats */}
-        <div style={{
+        <div className="hero-stats-anim" style={{
           display: 'flex', gap: 0, alignItems: 'center',
           justifyContent: 'center', position: 'relative'
         }}>
@@ -218,8 +261,8 @@ export default function LandingPage() {
         justifyContent: 'center', gap: 48, flexWrap: 'wrap',
         background: '#0d0f1a'
       }}>
-        {['AES-256 Encrypted', 'SOC 2 Type II', 'Auto-invalidation', 'PIN Protection', 'ISO 27001'].map(item => (
-          <div key={item} style={{
+        {['AES-256 Encrypted', 'SOC 2 Type II', 'Auto-invalidation', 'PIN Protection', 'ISO 27001'].map((item, i) => (
+          <div key={item} className={`reveal delay-${i+1}`} style={{
             display: 'flex', alignItems: 'center', gap: 8,
             fontFamily: 'JetBrains Mono, monospace',
             fontSize: 11, color: '#5e5c80',
@@ -234,13 +277,13 @@ export default function LandingPage() {
       {/* HOW IT WORKS */}
       <section id="how-it-works" style={{ padding: '120px 40px', maxWidth: 1200, margin: '0 auto' }}>
         <div style={{ marginBottom: 64 }}>
-          <div style={{
+          <div className="reveal" style={{
             fontFamily: 'JetBrains Mono, monospace',
             fontSize: 11, color: '#a89cff',
             letterSpacing: '0.12em', textTransform: 'uppercase',
             marginBottom: 16
           }}>{'// How it works'}</div>
-          <h2 style={{
+          <h2 className="reveal delay-1" style={{
             fontFamily: 'Geist, sans-serif',
             fontSize: 'clamp(32px, 4vw, 48px)',
             fontWeight: 700, letterSpacing: '-0.02em',
@@ -248,7 +291,7 @@ export default function LandingPage() {
           }}>
             Four steps.<br/>Zero compromise.
           </h2>
-          <p style={{ color: '#9896b8', fontSize: 16, maxWidth: 480, lineHeight: 1.7, fontWeight: 300 }}>
+          <p className="reveal delay-2" style={{ color: '#9896b8', fontSize: 16, maxWidth: 480, lineHeight: 1.7, fontWeight: 300 }}>
             From first inspection to field distribution in under 60 seconds.
           </p>
         </div>
@@ -265,7 +308,7 @@ export default function LandingPage() {
             { num: '03', title: 'Generate QR', desc: 'Set expiry, add PIN protection, generate a signed QR code instantly.' },
             { num: '04', title: 'Stick on Machine', desc: 'Print and stick the QR on the machine. Anyone scans to access the report.' }
           ].map((step, i) => (
-            <div key={i} style={{
+            <div key={i} className={`reveal-scale delay-${i+1} card-hover`} style={{
               background: '#0d0f1a', padding: '40px 32px',
               borderRight: i < 3 ? '1px solid rgba(255,255,255,0.07)' : 'none',
               transition: 'background 200ms ease'
@@ -295,13 +338,13 @@ export default function LandingPage() {
         maxWidth: 1200, margin: '0 auto'
       }}>
         <div style={{ marginBottom: 64 }}>
-          <div style={{
+          <div className="reveal" style={{
             fontFamily: 'JetBrains Mono, monospace',
             fontSize: 11, color: '#a89cff',
             letterSpacing: '0.12em', textTransform: 'uppercase',
             marginBottom: 16
           }}>{'// Core capabilities'}</div>
-          <h2 style={{
+          <h2 className="reveal delay-1" style={{
             fontFamily: 'Geist, sans-serif',
             fontSize: 'clamp(32px, 4vw, 48px)',
             fontWeight: 700, letterSpacing: '-0.02em',
@@ -326,7 +369,7 @@ export default function LandingPage() {
             { title: 'Instant Revocation', desc: 'One click kills a QR globally — mid-scan. Compromised codes gone in seconds.' },
             { title: 'Offline Support', desc: 'Files cached after first scan. Works deep in factories with zero signal.' }
           ].map((feature, i) => (
-            <div key={i} style={{
+            <div key={i} className={`reveal-scale delay-${i+1} card-hover`} style={{
               background: '#0d0f1a', padding: '32px',
               position: 'relative', transition: 'background 200ms ease',
               borderBottom: i < 3 ? '1px solid rgba(255,255,255,0.07)' : 'none'
@@ -367,7 +410,7 @@ export default function LandingPage() {
         borderTop: '1px solid rgba(255,255,255,0.07)',
         background: 'radial-gradient(ellipse 80% 50% at 50% 100%, rgba(108,99,255,0.08) 0%, transparent 70%)'
       }}>
-        <div style={{
+        <div className="reveal" style={{
           display: 'inline-flex', alignItems: 'center', gap: 8,
           background: 'rgba(61,255,160,0.08)',
           border: '1px solid rgba(61,255,160,0.2)',
@@ -385,7 +428,7 @@ export default function LandingPage() {
           </span>
         </div>
 
-        <h2 style={{
+        <h2 className="reveal delay-1" style={{
           fontFamily: 'Geist, sans-serif',
           fontSize: 'clamp(36px, 5vw, 64px)',
           fontWeight: 700, letterSpacing: '-0.02em',
@@ -394,7 +437,7 @@ export default function LandingPage() {
           Start for free.<br/>Forever.
         </h2>
 
-        <p style={{
+        <p className="reveal delay-2" style={{
           color: '#9896b8', fontSize: 17,
           maxWidth: 480, margin: '0 auto 48px',
           lineHeight: 1.7, fontWeight: 300
@@ -403,7 +446,7 @@ export default function LandingPage() {
           free while we build alongside our early users.
         </p>
 
-        <Link href="/register" style={{
+        <Link href="/register" className="reveal delay-3" style={{
           display: 'inline-flex', alignItems: 'center', gap: 8,
           background: '#6c63ff', color: 'white',
           padding: '16px 40px', borderRadius: 6,
@@ -414,7 +457,7 @@ export default function LandingPage() {
           Get Started Free →
         </Link>
 
-        <div style={{
+        <div className="reveal delay-4" style={{
           display: 'flex', gap: 32, justifyContent: 'center',
           flexWrap: 'wrap'
         }}>
