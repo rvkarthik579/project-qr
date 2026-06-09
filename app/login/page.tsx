@@ -56,11 +56,14 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--bg-base)' }}>
-      <Link href="/" style={{
+      <Link href="/" className="btn-glow" style={{
         position: 'fixed', top: 20, left: 24,
         display: 'inline-flex', alignItems: 'center', gap: 8,
-        color: '#9896b8', textDecoration: 'none',
-        fontSize: 14, transition: 'color 150ms ease',
+        color: '#f0eeff', textDecoration: 'none',
+        background: 'rgba(108,99,255,0.1)',
+        border: '1px solid rgba(108,99,255,0.2)',
+        padding: '8px 16px', borderRadius: '20px',
+        fontSize: 13, transition: 'all 150ms ease',
         zIndex: 10
       }}>
         ← Back to home
@@ -189,7 +192,7 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              className="btn btn-primary"
+              className="btn btn-primary btn-glow"
               disabled={loading}
               style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}
             >

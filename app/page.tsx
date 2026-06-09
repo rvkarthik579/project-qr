@@ -87,10 +87,16 @@ export default function LandingPage() {
             onMouseLeave={e => (e.target as HTMLElement).style.color = '#9896b8'}>
             Features
           </a>
-          <Link href="/login" style={{ color: '#9896b8', textDecoration: 'none', fontSize: 14 }}>
+          <Link href="/login" className="btn-glow" style={{ 
+            color: '#f0eeff', textDecoration: 'none', fontSize: 14,
+            background: 'rgba(108,99,255,0.1)',
+            border: '1px solid rgba(108,99,255,0.2)',
+            padding: '8px 18px', borderRadius: 6,
+            transition: 'all 150ms ease'
+          }}>
             Sign In
           </Link>
-          <Link href="/register" style={{
+          <Link href="/register" className="btn-glow" style={{
             background: '#6c63ff', color: 'white',
             padding: '8px 18px', borderRadius: 6,
             fontSize: 14, fontWeight: 500, textDecoration: 'none',
@@ -446,12 +452,11 @@ export default function LandingPage() {
           free while we build alongside our early users.
         </p>
 
-        <Link href="/register" className="reveal delay-3" style={{
+        <Link href="/register" className="reveal delay-3 btn-glow" style={{
           display: 'inline-flex', alignItems: 'center', gap: 8,
           background: '#6c63ff', color: 'white',
           padding: '16px 40px', borderRadius: 6,
           fontSize: 15, fontWeight: 500, textDecoration: 'none',
-          boxShadow: '0 0 32px rgba(108,99,255,0.35)',
           marginBottom: 48
         }}>
           Get Started Free →
