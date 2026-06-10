@@ -23,7 +23,12 @@ export async function GET(request: Request) {
         },
       }
     )
-    await supabase.auth.exchangeCodeForSession(code)
+    
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    
+    if (error) {
+      return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(error.message)}`)
+    }
   }
 
   return NextResponse.redirect(`${origin}/dashboard`)
