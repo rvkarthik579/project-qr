@@ -3,8 +3,6 @@
 import { useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import JSZip from 'jszip'
-// @ts-expect-error: missing type definitions
-import { Archive } from 'libarchive.js/main.js'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
 
 import { uploadFile } from '@/lib/storage'
@@ -19,8 +17,19 @@ import {
   IconAlertCircle, IconX
 } from '@tabler/icons-react'
 
-if (typeof window !== 'undefined') {
-  Archive.init({ workerUrl: '/worker-bundle.js' })
+let archiveInitialized = false
+
+async function initArchive() {
+  if (archiveInitialized) return
+  try {
+    const { Archive } = await import('libarchive.js/main.js')
+    await Archive.init({ workerUrl: '/worker-bundle.js' })
+    archiveInitialized = true
+    return Archive
+  } catch (err) {
+    console.error('Archive init failed:', err)
+    return null
+  }
 }
 
 const STEPS = ['Upload Files', 'Report Details', 'Expiry', 'Security', 'Generate']
@@ -49,6 +58,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
   const [currentStep, setCurrentStep] = useState(0)
   const [dragging, setDragging] = useState(false)
   const [processingFiles, setProcessingFiles] = useState(false)
+  const [extractionError, setExtractionError] = useState('')
   
   // Step 1: Files
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
@@ -135,49 +145,46 @@ export default function UploadPage({ params }: { params: { id: string } }) {
 
   async function buildTreeFromArchive(file: File): Promise<TreeNode[]> {
     try {
+      await initArchive()
+      const { Archive } = await import('libarchive.js/main.js')
       const archive = await Archive.open(file)
-      const entries = await archive.getFilesArray()
+      const obj = await archive.extractFiles()
+      
       const rootNodes: TreeNode[] = []
       const folderMap = new Map<string, TreeNode>()
 
-      for (const entry of entries) {
-        const path = entry.file.name
-        if (path.endsWith('/') || path.endsWith('\\')) continue
-        
-        const parts = path.replace(/\\/g, '/').split('/')
-        const fileName = parts[parts.length - 1]
-        if (!fileName || fileName.startsWith('.')) continue
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      function processEntry(entry: any, path: string) {
+        if (entry instanceof File) {
+          const parts = path.split('/')
+          const fileName = parts[parts.length - 1]
+          if (!fileName || fileName.startsWith('.')) return
 
-        const blob = await entry.file.arrayBuffer()
-        const fileObj = new File([blob], fileName)
-
-        if (parts.length === 1) {
-          rootNodes.push({ 
-            name: fileName, path, type: 'file', file: fileObj 
-          })
-        } else {
-          let parentList = rootNodes
-          let currentPath = ''
-          for (let i = 0; i < parts.length - 1; i++) {
-            currentPath = i === 0 ? parts[i] : currentPath + '/' + parts[i]
-            let folder = folderMap.get(currentPath)
-            if (!folder) {
-              folder = { 
-                name: parts[i], 
-                path: currentPath, 
-                type: 'folder', 
-                children: [] 
+          if (parts.length === 1) {
+            rootNodes.push({ name: fileName, path, type: 'file', file: entry })
+          } else {
+            let parentList = rootNodes
+            let currentPath = ''
+            for (let i = 0; i < parts.length - 1; i++) {
+              currentPath = i === 0 ? parts[i] : currentPath + '/' + parts[i]
+              let folder = folderMap.get(currentPath)
+              if (!folder) {
+                folder = { name: parts[i], path: currentPath, type: 'folder', children: [] }
+                folderMap.set(currentPath, folder)
+                parentList.push(folder)
               }
-              folderMap.set(currentPath, folder)
-              parentList.push(folder)
+              parentList = folder.children!
             }
-            parentList = folder.children!
+            parentList.push({ name: fileName, path, type: 'file', file: entry })
           }
-          parentList.push({ 
-            name: fileName, path, type: 'file', file: fileObj 
+        } else if (typeof entry === 'object') {
+          Object.keys(entry).forEach(key => {
+            processEntry(entry[key], path ? path + '/' + key : key)
           })
         }
       }
+
+      processEntry(obj, '')
       return rootNodes
     } catch (err) {
       console.error('Archive extraction failed:', err)
@@ -187,6 +194,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
 
   async function processFiles(files: File[]) {
     setProcessingFiles(true)
+    setExtractionError('')
     try {
       const validFiles = files.filter(f => {
         const name = f.name.toLowerCase()
@@ -198,6 +206,15 @@ export default function UploadPage({ params }: { params: { id: string } }) {
       setUploadedFiles(validFiles)
 
       const allNodes: TreeNode[] = []
+
+      const extractWithTimeout = async (file: File) => {
+        return Promise.race([
+          buildTreeFromArchive(file),
+          new Promise<TreeNode[]>((_, reject) => 
+            setTimeout(() => reject(new Error('Extraction timed out')), 30000)
+          )
+        ])
+      }
 
       for (const file of validFiles) {
         const name = file.name.toLowerCase()
@@ -212,10 +229,18 @@ export default function UploadPage({ params }: { params: { id: string } }) {
             try {
               archiveNodes = await buildTreeFromZip(file)
             } catch {
-              archiveNodes = await buildTreeFromArchive(file)
+              try {
+                archiveNodes = await extractWithTimeout(file)
+              } catch {
+                setExtractionError("Could not expand this archive. The file will be uploaded as-is.")
+              }
             }
           } else {
-            archiveNodes = await buildTreeFromArchive(file)
+            try {
+              archiveNodes = await extractWithTimeout(file)
+            } catch {
+              setExtractionError("Could not expand this archive. The file will be uploaded as-is.")
+            }
           }
 
           if (archiveNodes.length > 0) {
@@ -529,7 +554,20 @@ export default function UploadPage({ params }: { params: { id: string } }) {
                   borderTopColor: 'transparent',
                   animation: 'spin 600ms linear infinite'
                 }} />
-                Extracting files from ZIP...
+                Extracting files... this may take a moment for large archives
+              </div>
+            )}
+
+            {extractionError && (
+              <div style={{
+                display: 'flex', alignItems: 'flex-start', gap: 10,
+                padding: '12px 16px',
+                background: 'rgba(255,90,90,0.08)',
+                border: '1px solid rgba(255,90,90,0.2)',
+                borderRadius: 8, textAlign: 'left'
+              }}>
+                <IconAlertCircle size={16} color="var(--danger)" style={{ flexShrink: 0, marginTop: 2 }} />
+                <span style={{ fontSize: '0.875rem', color: 'var(--danger)' }}>{extractionError}</span>
               </div>
             )}
 
