@@ -63,7 +63,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
   // Step 1: Upload (includes optional status)
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const [treeNodes, setTreeNodes] = useState<TreeNode[]>([])
-  const [reportStatus, setReportStatus] = useState<'pass' | 'fail' | 'needs_attention'>('pass')
+  const [reportStatus, setReportStatus] = useState<'pass' | 'fail' | 'needs_attention' | null>(null)
   const [remarks, setRemarks] = useState('')
   
   // Step 2: Select Files
@@ -379,7 +379,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
         .insert({
           project_id: projectId,
           user_id: user.id,
-          status: reportStatus,
+          status: reportStatus || 'pass',
           remarks: remarks || null,
           next_inspection_date: null,
           created_at: new Date().toISOString(),
@@ -455,7 +455,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
           qrUniqueId,
           machineName: machine,
           fileName: file.name,
-          status: reportStatus,
+          status: reportStatus || 'pass',
           expiryDate,
           generatedDate: new Date().toISOString(),
           fileUrl: url,
@@ -657,38 +657,42 @@ export default function UploadPage({ params }: { params: { id: string } }) {
                 Inspection Status (optional)
               </p>
               <div style={{display: 'flex', gap: 8}}>
-                {['Pass', 'Needs Attention', 'Fail'].map(s => (
-                  <button
-                    key={s}
-                    onClick={() => setReportStatus(s.toLowerCase().replace(' ', '_') as any)}
-                    style={{
-                      flex: 1, padding: '10px 8px',
-                      borderRadius: 8,
-                      border: `1px solid ${
-                        reportStatus === s.toLowerCase().replace(' ', '_')
-                          ? s === 'Pass' ? 'rgba(61,255,160,0.4)'
-                          : s === 'Fail' ? 'rgba(255,90,90,0.4)'
-                          : 'rgba(240,192,96,0.4)'
-                          : 'rgba(255,255,255,0.07)'
-                      }`,
-                      background: reportStatus === s.toLowerCase().replace(' ', '_')
-                        ? s === 'Pass' ? 'rgba(61,255,160,0.08)'
-                        : s === 'Fail' ? 'rgba(255,90,90,0.08)'
-                        : 'rgba(240,192,96,0.08)'
-                        : 'transparent',
-                      color: reportStatus === s.toLowerCase().replace(' ', '_')
-                        ? s === 'Pass' ? '#3dffa0'
-                        : s === 'Fail' ? '#ff5a5a'
-                        : '#f0c060'
-                        : '#5e5c80',
-                      fontSize: 13, fontWeight: 500,
-                      cursor: 'pointer',
-                      transition: 'all 150ms ease'
-                    }}
-                  >
-                    {s === 'Pass' ? '✓ Pass' : s === 'Fail' ? '✕ Fail' : '⚠ Needs Attention'}
-                  </button>
-                ))}
+                {['Pass', 'Needs Attention', 'Fail'].map(s => {
+                  const val = s.toLowerCase().replace(' ', '_') as 'pass' | 'fail' | 'needs_attention'
+                  const isSelected = reportStatus === val
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => setReportStatus(isSelected ? null : val)}
+                      style={{
+                        flex: 1, padding: '10px 8px',
+                        borderRadius: 8,
+                        border: `1px solid ${
+                          isSelected
+                            ? s === 'Pass' ? 'rgba(61,255,160,0.4)'
+                            : s === 'Fail' ? 'rgba(255,90,90,0.4)'
+                            : 'rgba(240,192,96,0.4)'
+                            : 'rgba(255,255,255,0.07)'
+                        }`,
+                        background: isSelected
+                          ? s === 'Pass' ? 'rgba(61,255,160,0.08)'
+                          : s === 'Fail' ? 'rgba(255,90,90,0.08)'
+                          : 'rgba(240,192,96,0.08)'
+                          : 'transparent',
+                        color: isSelected
+                          ? s === 'Pass' ? '#3dffa0'
+                          : s === 'Fail' ? '#ff5a5a'
+                          : '#f0c060'
+                          : '#5e5c80',
+                        fontSize: 13, fontWeight: 500,
+                        cursor: 'pointer',
+                        transition: 'all 150ms ease'
+                      }}
+                    >
+                      {s === 'Pass' ? '✓ Pass' : s === 'Fail' ? '✕ Fail' : '⚠ Needs Attention'}
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
@@ -757,6 +761,22 @@ export default function UploadPage({ params }: { params: { id: string } }) {
               selectedPaths={selectedPaths}
               onToggle={handleToggleFile}
             />
+
+            <button
+              onClick={() => setCurrentStep(2)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#5e5c80',
+                fontSize: 13,
+                cursor: 'pointer',
+                fontFamily: 'Inter, sans-serif',
+                marginTop: 16,
+                textDecoration: 'underline'
+              }}
+            >
+              Skip — upload all files without selecting
+            </button>
           </div>
         )}
 
@@ -904,10 +924,10 @@ export default function UploadPage({ params }: { params: { id: string } }) {
                   {[
                     { 
                       label: 'Status', 
-                      value: reportStatus === 'pass' ? '✓ Pass' 
+                      value: (reportStatus || 'pass') === 'pass' ? '✓ Pass' 
                         : reportStatus === 'fail' ? '✕ Fail' 
                         : '⚠ Needs Attention',
-                      color: reportStatus === 'pass' ? '#3dffa0' 
+                      color: (reportStatus || 'pass') === 'pass' ? '#3dffa0' 
                         : reportStatus === 'fail' ? '#ff5a5a' 
                         : '#f0c060'
                     },
