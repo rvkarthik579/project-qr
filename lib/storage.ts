@@ -17,8 +17,9 @@ export async function uploadFile(
   reportId: string
 ): Promise<UploadResult> {
   const supabase = getSupabaseBrowserClient()
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-  const path = `${userId}/${projectId}/${reportId}/${safeName}`
+  const ext = file.name.includes('.') ? file.name.split('.').pop() : 'bin'
+  const randomName = `${crypto.randomUUID()}.${ext}`
+  const path = `${userId}/${projectId}/${reportId}/${randomName}`
   
   const { data, error } = await supabase.storage
     .from('project-qr-files')
