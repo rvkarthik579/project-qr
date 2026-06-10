@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import JSZip from 'jszip'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
@@ -8,20 +8,19 @@ import { getSupabaseBrowserClient } from '@/lib/supabase'
 import { uploadFile } from '@/lib/storage'
 import { generateQRId, getExpiryFromPreset } from '@/lib/qr'
 import FileTree, { TreeNode } from '@/components/upload/FileTree'
-import ExpiryPicker from '@/components/upload/ExpiryPicker'
-import QRCard from '@/components/upload/QRCard'
 import Link from 'next/link'
 import {
   IconUpload, IconCheck, IconArrowLeft, IconArrowRight,
-  IconShield, IconLock, IconQrcode,
   IconAlertCircle, IconX
 } from '@tabler/icons-react'
+import { QRCodeSVG } from 'qrcode.react'
 
 let archiveInitialized = false
 
 async function initArchive() {
   if (archiveInitialized) return
   try {
+    // @ts-expect-error: missing type definitions
     const { Archive } = await import('libarchive.js/main.js')
     await Archive.init({ workerUrl: '/worker-bundle.js' })
     archiveInitialized = true
@@ -32,7 +31,7 @@ async function initArchive() {
   }
 }
 
-const STEPS = ['Upload Files', 'Report Details', 'Expiry', 'Security', 'Generate']
+const STEPS = ['Upload', 'Select Files', 'Settings', 'Generate']
 const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
 const ACCEPTED_TYPES = [
   '.zip', '.rar', '.tar', '.gz', '.7z', '.ear', 
@@ -59,36 +58,72 @@ export default function UploadPage({ params }: { params: { id: string } }) {
   const [dragging, setDragging] = useState(false)
   const [processingFiles, setProcessingFiles] = useState(false)
   const [extractionError, setExtractionError] = useState('')
+  const [extractingArchiveType, setExtractingArchiveType] = useState('ZIP')
   
-  // Step 1: Files
+  // Step 1: Upload (includes optional status)
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const [treeNodes, setTreeNodes] = useState<TreeNode[]>([])
-  const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
-  const [selectedFiles, setSelectedFiles] = useState<Map<string, File>>(new Map())
-  
-  // Step 2: Report
   const [reportStatus, setReportStatus] = useState<'pass' | 'fail' | 'needs_attention'>('pass')
   const [remarks, setRemarks] = useState('')
-  const [nextInspectionDate, setNextInspectionDate] = useState('')
   
-  // Step 3: Expiry
+  // Step 2: Select Files
+  const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
+  const [selectedFiles, setSelectedFiles] = useState<Map<string, File>>(new Map())
+  const [totalFiles, setTotalFiles] = useState(0)
+  
+  // Step 3: Settings
+  const [expiryPreset, setExpiryPreset] = useState<'30d' | '90d' | '1y' | 'never'>('90d')
   const [expiryDate, setExpiryDate] = useState<string | null>(getExpiryFromPreset('90d'))
-  
-  // Step 4: Security
   const [requirePin, setRequirePin] = useState(false)
   const [pin, setPin] = useState('')
-  const [showCompany, setShowCompany] = useState(true)
-  const [showUploaderName, setShowUploaderName] = useState(true)
-  const [showNextInspection, setShowNextInspection] = useState(true)
   
-  // Step 5: Generated QRs
+  // Step 4: Generate
   const [generating, setGenerating] = useState(false)
   const [generatedQRs, setGeneratedQRs] = useState<GeneratedQR[]>([])
   const [generateError, setGenerateError] = useState('')
   const [projectName, setProjectName] = useState('')
   const [uploadProgress, setUploadProgress] = useState(0)
 
-  // Build file tree from a zip
+  useEffect(() => {
+    setExpiryDate(getExpiryFromPreset(expiryPreset))
+  }, [expiryPreset])
+
+  // Count total files recursively for UI
+  useEffect(() => {
+    let count = 0
+    function traverse(nodes: TreeNode[]) {
+      nodes.forEach(n => {
+        if (n.type === 'file') count++
+        if (n.children) traverse(n.children)
+      })
+    }
+    traverse(treeNodes)
+    setTotalFiles(count)
+  }, [treeNodes])
+
+  function selectAll() {
+    const allPaths = new Set<string>()
+    const allFiles = new Map<string, File>()
+    function traverse(nodes: TreeNode[]) {
+      nodes.forEach(node => {
+        if (node.type === 'file' && node.file) {
+          allPaths.add(node.path)
+          allFiles.set(node.path, node.file)
+        } else if (node.children) {
+          traverse(node.children)
+        }
+      })
+    }
+    traverse(treeNodes)
+    setSelectedPaths(allPaths)
+    setSelectedFiles(allFiles)
+  }
+
+  function deselectAll() {
+    setSelectedPaths(new Set())
+    setSelectedFiles(new Map())
+  }
+
   async function buildTreeFromZip(file: File): Promise<TreeNode[]> {
     const zip = new JSZip()
     const contents = await zip.loadAsync(file)
@@ -101,7 +136,6 @@ export default function UploadPage({ params }: { params: { id: string } }) {
         !path.includes('.DS_Store'))
       .sort()
 
-    // Extract ALL files in parallel instead of sequentially
     const fileObjects = await Promise.all(
       entries.map(async (path) => {
         const parts = path.split('/')
@@ -146,6 +180,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
   async function buildTreeFromArchive(file: File): Promise<TreeNode[]> {
     try {
       await initArchive()
+      // @ts-expect-error: missing type definitions
       const { Archive } = await import('libarchive.js/main.js')
       const archive = await Archive.open(file)
       const obj = await archive.extractFiles()
@@ -154,7 +189,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
       const folderMap = new Map<string, TreeNode>()
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      function processEntry(entry: any, path: string) {
+      const processEntry = (entry: any, path: string) => {
         if (entry instanceof File) {
           const parts = path.split('/')
           const fileName = parts[parts.length - 1]
@@ -202,16 +237,20 @@ export default function UploadPage({ params }: { params: { id: string } }) {
                f.size <= MAX_FILE_SIZE
       })
 
-      if (validFiles.length === 0) return
+      if (validFiles.length === 0) {
+        setProcessingFiles(false)
+        return
+      }
+      
       setUploadedFiles(validFiles)
-
       const allNodes: TreeNode[] = []
+      let containsArchive = false
 
       const extractWithTimeout = async (file: File) => {
         return Promise.race([
           buildTreeFromArchive(file),
           new Promise<TreeNode[]>((_, reject) => 
-            setTimeout(() => reject(new Error('Extraction timed out')), 30000)
+            setTimeout(() => reject(new Error('Extraction timed out')), 10000)
           )
         ])
       }
@@ -221,10 +260,11 @@ export default function UploadPage({ params }: { params: { id: string } }) {
         const isArchive = ARCHIVE_TYPES.some(ext => name.endsWith(ext))
 
         if (isArchive) {
+          containsArchive = true
+          setExtractingArchiveType(name.split('.').pop()?.toUpperCase() || 'ZIP')
           setProcessingFiles(true)
           let archiveNodes: TreeNode[] = []
           
-          // Try ZIP first (faster), fall back to libarchive for other formats
           if (name.endsWith('.zip')) {
             try {
               archiveNodes = await buildTreeFromZip(file)
@@ -232,14 +272,14 @@ export default function UploadPage({ params }: { params: { id: string } }) {
               try {
                 archiveNodes = await extractWithTimeout(file)
               } catch {
-                setExtractionError("Could not expand this archive. The file will be uploaded as-is.")
+                archiveNodes = []
               }
             }
           } else {
             try {
               archiveNodes = await extractWithTimeout(file)
             } catch {
-              setExtractionError("Could not expand this archive. The file will be uploaded as-is.")
+              archiveNodes = []
             }
           }
 
@@ -251,7 +291,8 @@ export default function UploadPage({ params }: { params: { id: string } }) {
               children: archiveNodes 
             })
           } else {
-            // If extraction failed, show as single file
+            setExtractionError("Could not expand this archive automatically. \nThe file will be uploaded as a single item.")
+            containsArchive = false
             allNodes.push({ 
               name: file.name, 
               path: file.name, 
@@ -270,9 +311,14 @@ export default function UploadPage({ params }: { params: { id: string } }) {
       }
 
       setTreeNodes(allNodes)
+      setProcessingFiles(false)
+      
+      // Auto advance logic
+      if (!containsArchive) {
+        setCurrentStep(2) // Jump straight to Settings
+      }
     } catch (err) {
       console.error('File processing error:', err)
-    } finally {
       setProcessingFiles(false)
     }
   }
@@ -298,7 +344,6 @@ export default function UploadPage({ params }: { params: { id: string } }) {
     setSelectedFiles(newFiles)
   }
 
-  // Load project name
   async function loadProjectName() {
     const supabase = getSupabaseBrowserClient()
     const { data } = await supabase.from('projects').select('machine_name').eq('id', projectId).single()
@@ -321,7 +366,6 @@ export default function UploadPage({ params }: { params: { id: string } }) {
 
       if (!projectName) await loadProjectName()
 
-      // Fetch project name if not loaded
       const { data: project } = await supabase
         .from('projects')
         .select('machine_name')
@@ -337,7 +381,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
           user_id: user.id,
           status: reportStatus,
           remarks: remarks || null,
-          next_inspection_date: nextInspectionDate || null,
+          next_inspection_date: null,
           created_at: new Date().toISOString(),
         })
         .select('id')
@@ -355,13 +399,11 @@ export default function UploadPage({ params }: { params: { id: string } }) {
       for (const { file } of filesToProcess) {
         setUploadProgress(Math.round((processed / filesToProcess.length) * 90))
 
-        // Upload file to storage
         const { path: storagePath, url, error: uploadErr } = await uploadFile(
           file, user.id, projectId, report.id
         )
         if (uploadErr) throw new Error(`Failed to upload ${file.name}: ${uploadErr}`)
 
-        // Create file record
         const { data: fileRecord, error: fileErr } = await supabase
           .from('files')
           .insert({
@@ -377,10 +419,8 @@ export default function UploadPage({ params }: { params: { id: string } }) {
 
         if (fileErr) throw new Error(fileErr.message)
 
-        // Generate QR ID
         const qrUniqueId = generateQRId()
 
-        // Hash PIN if required
         let passwordHash = null
         if (requirePin && pin.length === 4) {
           const response = await fetch('/api/qr/hash-pin', {
@@ -392,7 +432,6 @@ export default function UploadPage({ params }: { params: { id: string } }) {
           passwordHash = hash
         }
 
-        // Create QR record
         const { error: qrErr } = await supabase
           .from('qr_codes')
           .insert({
@@ -402,10 +441,10 @@ export default function UploadPage({ params }: { params: { id: string } }) {
             qr_unique_id: qrUniqueId,
             password_hash: passwordHash,
             expiry_date: expiryDate,
-            next_inspection_date: nextInspectionDate || null,
-            show_company: showCompany,
-            show_uploader_name: showUploaderName,
-            show_next_inspection: showNextInspection,
+            next_inspection_date: null,
+            show_company: false,
+            show_uploader_name: false,
+            show_next_inspection: false,
             is_active: true,
             created_at: new Date().toISOString(),
           })
@@ -436,13 +475,29 @@ export default function UploadPage({ params }: { params: { id: string } }) {
 
   function canProceed() {
     if (currentStep === 0) return uploadedFiles.length > 0
-    if (currentStep === 3) return !requirePin || pin.length === 4
+    if (currentStep === 2) return !requirePin || pin.length === 4
     return true
+  }
+
+  function goNextStep() {
+    if (currentStep === 0) {
+      if (treeNodes.some(n => n.type === 'folder')) setCurrentStep(1)
+      else setCurrentStep(2)
+    } else {
+      setCurrentStep(s => s + 1)
+    }
+  }
+
+  function goPrevStep() {
+    if (currentStep === 2 && !treeNodes.some(n => n.type === 'folder')) {
+      setCurrentStep(0)
+    } else {
+      setCurrentStep(s => s - 1)
+    }
   }
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto' }}>
-      {/* Back */}
       <Link
         href={`/dashboard/projects/${projectId}`}
         style={{
@@ -457,21 +512,19 @@ export default function UploadPage({ params }: { params: { id: string } }) {
 
       <div style={{ marginBottom: 32 }}>
         <h1 className="font-geist" style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: 8 }}>
-          Upload Inspection Report
+          Upload Files
         </h1>
         <p style={{ color: 'var(--text-secondary)' }}>
-          Upload files, create a report, and generate QR codes
+          Create secure QR codes for your documents
         </p>
       </div>
 
-      {/* Step Indicator */}
       <div className="step-indicator" style={{ marginBottom: 32, overflowX: 'auto' }}>
         {STEPS.map((step, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center' }}>
             <div
               className={`step ${i === currentStep ? 'active' : ''} ${i < currentStep ? 'completed' : ''}`}
-              onClick={() => i < currentStep && setCurrentStep(i)}
-              style={{ cursor: i < currentStep ? 'pointer' : 'default' }}
+              style={{ cursor: 'default' }}
             >
               <div className="step-number">
                 {i < currentStep ? <IconCheck size={12} /> : i + 1}
@@ -485,7 +538,6 @@ export default function UploadPage({ params }: { params: { id: string } }) {
         ))}
       </div>
 
-      {/* Step Content */}
       <div className="card animate-fade-up" style={{ padding: 32 }}>
 
         {/* STEP 1: Upload */}
@@ -496,11 +548,10 @@ export default function UploadPage({ params }: { params: { id: string } }) {
                 Upload Files
               </h2>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                Drag & drop ZIP, RAR, EAR, WAR, PDF, or DOCX files. Max 50MB. ZIP files will be expanded automatically.
+                Drag & drop ZIP, RAR, 7Z, TAR, PDF, or DOCX files. Max 50MB. Archives will be expanded automatically.
               </p>
             </div>
 
-            {/* Drop zone */}
             <div
               className={`dropzone ${dragging ? 'active' : ''}`}
               onDragOver={e => { e.preventDefault(); setDragging(true) }}
@@ -554,7 +605,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
                   borderTopColor: 'transparent',
                   animation: 'spin 600ms linear infinite'
                 }} />
-                Extracting files... this may take a moment for large archives
+                Extracting {extractingArchiveType} archive...
               </div>
             )}
 
@@ -567,179 +618,240 @@ export default function UploadPage({ params }: { params: { id: string } }) {
                 borderRadius: 8, textAlign: 'left'
               }}>
                 <IconAlertCircle size={16} color="var(--danger)" style={{ flexShrink: 0, marginTop: 2 }} />
-                <span style={{ fontSize: '0.875rem', color: 'var(--danger)' }}>{extractionError}</span>
+                <span style={{ fontSize: '0.875rem', color: 'var(--danger)', whiteSpace: 'pre-line' }}>{extractionError}</span>
               </div>
             )}
 
-            {/* Uploaded files list */}
-            {uploadedFiles.length > 0 && (
-              <div>
+            {uploadedFiles.length > 0 && !processingFiles && (
+              <div className="animate-slide-down">
                 <div style={{ 
-                  display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12,
-                  color: 'var(--text-secondary)', fontSize: '0.875rem'
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  background: 'var(--bg-hover)', borderRadius: 8, padding: '12px 16px',
+                  border: '1px solid var(--border)'
                 }}>
-                  <IconCheck size={14} color="var(--success)" />
-                  <span>{uploadedFiles.length} file{uploadedFiles.length !== 1 ? 's' : ''} uploaded</span>
-                </div>
-                
-                {/* File tree for zip contents */}
-                {treeNodes.length > 0 && (
-                  <div style={{ marginBottom: 12 }}>
-                    <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginBottom: 8 }}>
-                      Select files to generate individual QR codes (or skip to generate one QR per upload):
-                    </p>
-                    <FileTree 
-                      nodes={treeNodes}
-                      selectedPaths={selectedPaths}
-                      onToggle={handleToggleFile}
-                    />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                    <IconCheck size={16} color="var(--success)" />
+                    <span>{uploadedFiles.length} file{uploadedFiles.length !== 1 ? 's' : ''} uploaded successfully</span>
                   </div>
-                )}
-
-                <button
-                  onClick={() => { setUploadedFiles([]); setTreeNodes([]); setSelectedPaths(new Set()); setSelectedFiles(new Map()) }}
-                  style={{ 
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    color: 'var(--text-muted)', fontSize: '0.8125rem',
-                    display: 'flex', alignItems: 'center', gap: 6
-                  }}
-                >
-                  <IconX size={14} />
-                  Clear files
-                </button>
+                  <button
+                    onClick={() => { setUploadedFiles([]); setTreeNodes([]); setSelectedPaths(new Set()); setSelectedFiles(new Map()) }}
+                    style={{ 
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'var(--text-muted)', fontSize: '0.8125rem',
+                      display: 'flex', alignItems: 'center', gap: 6
+                    }}
+                  >
+                    <IconX size={14} /> Clear
+                  </button>
+                </div>
               </div>
             )}
+
+            <div style={{marginTop: 24}}>
+              <p style={{
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: 11, color: '#5e5c80',
+                letterSpacing: '0.08em', textTransform: 'uppercase',
+                marginBottom: 12
+              }}>
+                Inspection Status (optional)
+              </p>
+              <div style={{display: 'flex', gap: 8}}>
+                {['Pass', 'Needs Attention', 'Fail'].map(s => (
+                  <button
+                    key={s}
+                    onClick={() => setReportStatus(s.toLowerCase().replace(' ', '_') as any)}
+                    style={{
+                      flex: 1, padding: '10px 8px',
+                      borderRadius: 8,
+                      border: `1px solid ${
+                        reportStatus === s.toLowerCase().replace(' ', '_')
+                          ? s === 'Pass' ? 'rgba(61,255,160,0.4)'
+                          : s === 'Fail' ? 'rgba(255,90,90,0.4)'
+                          : 'rgba(240,192,96,0.4)'
+                          : 'rgba(255,255,255,0.07)'
+                      }`,
+                      background: reportStatus === s.toLowerCase().replace(' ', '_')
+                        ? s === 'Pass' ? 'rgba(61,255,160,0.08)'
+                        : s === 'Fail' ? 'rgba(255,90,90,0.08)'
+                        : 'rgba(240,192,96,0.08)'
+                        : 'transparent',
+                      color: reportStatus === s.toLowerCase().replace(' ', '_')
+                        ? s === 'Pass' ? '#3dffa0'
+                        : s === 'Fail' ? '#ff5a5a'
+                        : '#f0c060'
+                        : '#5e5c80',
+                      fontSize: 13, fontWeight: 500,
+                      cursor: 'pointer',
+                      transition: 'all 150ms ease'
+                    }}
+                  >
+                    {s === 'Pass' ? '✓ Pass' : s === 'Fail' ? '✕ Fail' : '⚠ Needs Attention'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <textarea
+              placeholder="Add remarks (optional)..."
+              value={remarks}
+              onChange={e => setRemarks(e.target.value)}
+              style={{
+                width: '100%', marginTop: 12,
+                background: '#07080f',
+                border: '1px solid rgba(255,255,255,0.07)',
+                borderRadius: 8, padding: '12px 14px',
+                color: '#f0eeff', fontSize: 13,
+                fontFamily: 'Inter, sans-serif',
+                resize: 'none', outline: 'none',
+                minHeight: 80
+              }}
+            />
           </div>
         )}
 
-        {/* STEP 2: Report Details */}
+        {/* STEP 2: File Tree */}
         {currentStep === 1 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-            <h2 className="font-geist" style={{ fontSize: '1.2rem', fontWeight: 600 }}>
-              Inspection Report Details
-            </h2>
+          <div>
+            <div style={{marginBottom: 24}}>
+              <h2 style={{
+                fontFamily: 'Geist, sans-serif',
+                fontSize: 20, fontWeight: 700, marginBottom: 8
+              }}>Select Files for QR Codes</h2>
+              <p style={{color: '#9896b8', fontSize: 14}}>
+                Pick which files get their own QR code. 
+                Each selected file = one scannable QR.
+              </p>
+            </div>
 
-            {/* Status */}
-            <div>
-              <label className="label">Inspection Status *</label>
-              <div style={{ display: 'flex', gap: 12 }}>
-                {([
-                  { value: 'pass', label: '✓ Pass', color: 'var(--success)', bg: 'rgba(61,255,160,0.1)', border: 'rgba(61,255,160,0.3)' },
-                  { value: 'needs_attention', label: '⚠ Needs Attention', color: 'var(--warning)', bg: 'rgba(240,192,96,0.1)', border: 'rgba(240,192,96,0.3)' },
-                  { value: 'fail', label: '✕ Fail', color: 'var(--danger)', bg: 'rgba(255,90,90,0.1)', border: 'rgba(255,90,90,0.3)' },
-                ] as const).map(opt => (
+            <div style={{
+              display: 'flex', gap: 8, marginBottom: 16,
+              alignItems: 'center', justifyContent: 'space-between'
+            }}>
+              <span style={{
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: 11, color: '#5e5c80'
+              }}>
+                {selectedPaths.size} of {totalFiles} files selected
+              </span>
+              <div style={{display: 'flex', gap: 8}}>
+                <button onClick={selectAll} style={{
+                  background: 'rgba(108,99,255,0.1)',
+                  border: '1px solid rgba(108,99,255,0.2)',
+                  color: '#a89cff', padding: '6px 12px',
+                  borderRadius: 6, fontSize: 12, cursor: 'pointer',
+                  fontFamily: 'Inter, sans-serif'
+                }}>Select All</button>
+                <button onClick={deselectAll} style={{
+                  background: 'transparent',
+                  border: '1px solid rgba(255,255,255,0.07)',
+                  color: '#5e5c80', padding: '6px 12px',
+                  borderRadius: 6, fontSize: 12, cursor: 'pointer',
+                  fontFamily: 'Inter, sans-serif'
+                }}>Clear</button>
+              </div>
+            </div>
+
+            <FileTree 
+              nodes={treeNodes}
+              selectedPaths={selectedPaths}
+              onToggle={handleToggleFile}
+            />
+          </div>
+        )}
+
+        {/* STEP 3: Settings */}
+        {currentStep === 2 && (
+          <div>
+            <div style={{marginBottom: 32}}>
+              <p style={{
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: 11, color: '#5e5c80',
+                letterSpacing: '0.08em', textTransform: 'uppercase',
+                marginBottom: 16
+              }}>QR Code Expiry</p>
+              
+              <div style={{display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16}}>
+                {(
+                  [
+                    {label: '30 Days', value: '30d'},
+                    {label: '90 Days', value: '90d'},
+                    {label: '1 Year', value: '1y'},
+                    {label: 'Never', value: 'never'}
+                  ] as const
+                ).map(opt => (
                   <button
                     key={opt.value}
-                    type="button"
-                    onClick={() => setReportStatus(opt.value)}
+                    onClick={() => setExpiryPreset(opt.value)}
                     style={{
-                      flex: 1,
-                      padding: '16px 8px',
-                      borderRadius: 10,
-                      border: `2px solid ${reportStatus === opt.value ? opt.border : 'var(--border)'}`,
-                      background: reportStatus === opt.value ? opt.bg : 'transparent',
-                      color: reportStatus === opt.value ? opt.color : 'var(--text-muted)',
-                      cursor: 'pointer',
-                      fontWeight: 600,
-                      fontSize: '0.9rem',
+                      padding: '10px 20px', borderRadius: 8,
+                      border: `1px solid ${expiryPreset === opt.value 
+                        ? 'rgba(108,99,255,0.4)' 
+                        : 'rgba(255,255,255,0.07)'}`,
+                      background: expiryPreset === opt.value 
+                        ? 'rgba(108,99,255,0.1)' 
+                        : 'transparent',
+                      color: expiryPreset === opt.value ? '#a89cff' : '#5e5c80',
+                      fontSize: 13, cursor: 'pointer',
                       fontFamily: 'Inter, sans-serif',
-                      transition: 'all 150ms ease',
-                      textAlign: 'center',
+                      transition: 'all 150ms ease'
                     }}
                   >
                     {opt.label}
                   </button>
                 ))}
               </div>
+
+              {expiryDate && (
+                <p style={{
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: 12, color: '#5e5c80'
+                }}>
+                  This QR will stop working on {new Date(expiryDate).toDateString()}
+                </p>
+              )}
             </div>
 
-            {/* Remarks */}
-            <div>
-              <label className="label">Remarks</label>
-              <textarea
-                className="textarea"
-                placeholder="Describe the inspection findings, notes for next inspector, issues found..."
-                value={remarks}
-                onChange={e => setRemarks(e.target.value)}
-                rows={4}
-              />
-            </div>
-
-            {/* Next inspection */}
-            <div>
-              <label className="label">Next Inspection Date</label>
-              <input
-                type="date"
-                className="input"
-                value={nextInspectionDate}
-                onChange={e => setNextInspectionDate(e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* STEP 3: Expiry */}
-        {currentStep === 2 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-            <div>
-              <h2 className="font-geist" style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: 8 }}>
-                QR Code Expiry
-              </h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                Set when the QR code stops working. After expiry, scans are blocked and logged.
-              </p>
-            </div>
-            <ExpiryPicker value={expiryDate} onChange={setExpiryDate} />
-          </div>
-        )}
-
-        {/* STEP 4: Security */}
-        {currentStep === 3 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-            <div>
-              <h2 className="font-geist" style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: 8 }}>
-                Security & Label Settings
-              </h2>
-            </div>
-
-            {/* PIN */}
-            <div className="card" style={{ padding: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: requirePin ? 16 : 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{
-                    width: 36, height: 36,
-                    background: requirePin ? 'rgba(108,99,255,0.1)' : 'rgba(255,255,255,0.05)',
-                    borderRadius: 8,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center'
-                  }}>
-                    <IconLock size={18} color={requirePin ? 'var(--accent-light)' : 'var(--text-muted)'} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.9375rem', fontWeight: 500 }}>Require PIN</div>
-                    <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Scanner must enter a 4-digit PIN</div>
-                  </div>
+            <div style={{
+              background: '#0d0f1a',
+              border: '1px solid rgba(255,255,255,0.07)',
+              borderRadius: 12, padding: 20
+            }}>
+              <div style={{
+                display: 'flex', alignItems: 'center',
+                justifyContent: 'space-between'
+              }}>
+                <div>
+                  <p style={{fontSize: 15, fontWeight: 500, marginBottom: 4}}>
+                    PIN Protection
+                  </p>
+                  <p style={{fontSize: 13, color: '#5e5c80'}}>
+                    Require a 4-digit code to access this QR
+                  </p>
                 </div>
                 <label className="toggle">
-                  <input 
-                    type="checkbox" 
-                    checked={requirePin}
-                    onChange={e => { setRequirePin(e.target.checked); setPin('') }}
-                  />
+                  <input type="checkbox" checked={requirePin}
+                    onChange={e => { setRequirePin(e.target.checked); setPin('') }} />
                   <span className="toggle-slider" />
                 </label>
               </div>
+              
               {requirePin && (
-                <div className="animate-slide-down">
-                  <label className="label">Enter 4-digit PIN</label>
+                <div style={{marginTop: 16}}>
                   <input
-                    type="text"
-                    className="input"
+                    type="text" maxLength={4}
                     placeholder="0000"
-                    maxLength={4}
                     value={pin}
-                    onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                    style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '1.25rem', letterSpacing: '0.3em', maxWidth: 160 }}
+                    onChange={e => setPin(e.target.value.replace(/\D/g,'').slice(0,4))}
+                    style={{
+                      background: '#07080f',
+                      border: '1px solid rgba(108,99,255,0.3)',
+                      borderRadius: 8, padding: '12px 16px',
+                      color: '#f0eeff', fontSize: 24,
+                      fontFamily: 'JetBrains Mono, monospace',
+                      letterSpacing: '0.4em', textAlign: 'center',
+                      width: 160, outline: 'none'
+                    }}
                   />
                   {pin.length > 0 && pin.length < 4 && (
                     <p style={{ color: 'var(--warning)', fontSize: '0.8125rem', marginTop: 8 }}>
@@ -749,77 +861,89 @@ export default function UploadPage({ params }: { params: { id: string } }) {
                 </div>
               )}
             </div>
-
-            {/* Label settings */}
-            <div className="card" style={{ padding: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                <div style={{ width: 36, height: 36, background: 'rgba(255,255,255,0.05)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <IconShield size={18} color="var(--text-muted)" />
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.9375rem', fontWeight: 500 }}>Label Information</div>
-                  <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Choose what's visible on the printed QR label</div>
-                </div>
-              </div>
-
-              {[
-                { label: 'Show company name', checked: showCompany, onChange: setShowCompany },
-                { label: 'Show uploader name', checked: showUploaderName, onChange: setShowUploaderName },
-                { label: 'Show next inspection date', checked: showNextInspection, onChange: setShowNextInspection },
-              ].map(item => (
-                <div key={item.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
-                  <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{item.label}</span>
-                  <label className="toggle">
-                    <input type="checkbox" checked={item.checked} onChange={e => item.onChange(e.target.checked)} />
-                    <span className="toggle-slider" />
-                  </label>
-                </div>
-              ))}
-            </div>
           </div>
         )}
 
-        {/* STEP 5: Generate */}
-        {currentStep === 4 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        {/* STEP 4: Generate */}
+        {currentStep === 3 && (
+          <div>
             {generatedQRs.length === 0 ? (
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{
-                    width: 80, height: 80,
-                    background: 'rgba(108,99,255,0.1)',
-                    border: '1px solid rgba(108,99,255,0.2)',
-                    borderRadius: 20,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    margin: '0 auto 16px'
-                  }}>
-                    <IconQrcode size={36} color="var(--accent-light)" />
-                  </div>
-                  <h2 className="font-geist" style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: 8 }}>
-                    Ready to Generate
-                  </h2>
-                  <p style={{ color: 'var(--text-secondary)' }}>
-                    {selectedFiles.size > 0 
-                      ? `Generate ${selectedFiles.size} QR code${selectedFiles.size !== 1 ? 's' : ''} for selected files`
-                      : `Generate ${uploadedFiles.length} QR code${uploadedFiles.length !== 1 ? 's' : ''}`
-                    }
-                  </p>
+              <div style={{textAlign: 'center', padding: '40px 0'}}>
+                <div style={{
+                  width: 100, height: 100,
+                  background: 'rgba(108,99,255,0.1)',
+                  border: '1px solid rgba(108,99,255,0.2)',
+                  borderRadius: 24, margin: '0 auto 32px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 0 40px rgba(108,99,255,0.2)'
+                }}>
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" 
+                    stroke="#a89cff" strokeWidth="1.5">
+                    <rect x="3" y="3" width="7" height="7"/>
+                    <rect x="14" y="3" width="7" height="7"/>
+                    <rect x="3" y="14" width="7" height="7"/>
+                    <rect x="14" y="14" width="3" height="3"/>
+                  </svg>
                 </div>
 
-                {/* Summary */}
+                <h2 style={{
+                  fontFamily: 'Geist, sans-serif',
+                  fontSize: 28, fontWeight: 700,
+                  marginBottom: 8, letterSpacing: '-0.02em'
+                }}>Ready to Generate</h2>
+                
+                <p style={{color: '#9896b8', fontSize: 15, marginBottom: 40}}>
+                  {selectedFiles.size || uploadedFiles.length} QR code
+                  {(selectedFiles.size || uploadedFiles.length) !== 1 ? 's' : ''} will be created
+                </p>
+
                 <div style={{
-                  background: 'var(--bg-hover)', borderRadius: 10,
-                  padding: 16, marginBottom: 24, textAlign: 'left'
+                  display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: 12, maxWidth: 480, margin: '0 auto 40px', textAlign: 'left'
                 }}>
                   {[
-                    { label: 'Status', value: reportStatus.replace('_', ' ').toUpperCase() },
-                    { label: 'Expiry', value: expiryDate ? new Date(expiryDate).toLocaleDateString() : 'Never' },
-                    { label: 'PIN Protected', value: requirePin ? `Yes (${pin})` : 'No' },
-                    { label: 'Files', value: `${selectedFiles.size || uploadedFiles.length}` },
+                    { 
+                      label: 'Status', 
+                      value: reportStatus === 'pass' ? '✓ Pass' 
+                        : reportStatus === 'fail' ? '✕ Fail' 
+                        : '⚠ Needs Attention',
+                      color: reportStatus === 'pass' ? '#3dffa0' 
+                        : reportStatus === 'fail' ? '#ff5a5a' 
+                        : '#f0c060'
+                    },
+                    { 
+                      label: 'Expires', 
+                      value: expiryDate 
+                        ? new Date(expiryDate).toLocaleDateString() 
+                        : 'Never',
+                      color: '#f0eeff'
+                    },
+                    { 
+                      label: 'PIN Protected', 
+                      value: requirePin ? 'Yes' : 'No',
+                      color: requirePin ? '#a89cff' : '#5e5c80'
+                    },
+                    { 
+                      label: 'Files', 
+                      value: `${selectedFiles.size || uploadedFiles.length} file${(selectedFiles.size || uploadedFiles.length) !== 1 ? 's' : ''}`,
+                      color: '#f0eeff'
+                    },
                   ].map(item => (
-                    <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
-                      <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{item.label}</span>
-                      <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{item.value}</span>
+                    <div key={item.label} style={{
+                      background: '#0d0f1a',
+                      border: '1px solid rgba(255,255,255,0.07)',
+                      borderRadius: 10, padding: '14px 16px'
+                    }}>
+                      <p style={{
+                        fontFamily: 'JetBrains Mono, monospace',
+                        fontSize: 10, color: '#5e5c80',
+                        letterSpacing: '0.1em', textTransform: 'uppercase',
+                        marginBottom: 6
+                      }}>{item.label}</p>
+                      <p style={{
+                        fontSize: 15, fontWeight: 500,
+                        color: item.color
+                      }}>{item.value}</p>
                     </div>
                   ))}
                 </div>
@@ -827,43 +951,72 @@ export default function UploadPage({ params }: { params: { id: string } }) {
                 {generateError && (
                   <div style={{
                     display: 'flex', alignItems: 'flex-start', gap: 10,
-                    padding: '12px 16px',
+                    padding: '12px 16px', maxWidth: 480, margin: '0 auto 24px',
                     background: 'rgba(255,90,90,0.08)',
                     border: '1px solid rgba(255,90,90,0.2)',
-                    borderRadius: 8, marginBottom: 16, textAlign: 'left'
+                    borderRadius: 8, textAlign: 'left'
                   }}>
                     <IconAlertCircle size={16} color="var(--danger)" style={{ flexShrink: 0, marginTop: 2 }} />
                     <span style={{ fontSize: '0.875rem', color: 'var(--danger)' }}>{generateError}</span>
                   </div>
                 )}
 
-                {generating && (
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ 
-                      height: 4, background: 'var(--bg-hover)', borderRadius: 2,
-                      overflow: 'hidden', marginBottom: 8
-                    }}>
-                      <div style={{
-                        height: '100%', background: 'var(--accent)',
-                        borderRadius: 2, width: `${uploadProgress}%`,
-                        transition: 'width 300ms ease'
-                      }} />
-                    </div>
-                    <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      Uploading files and generating QR codes... {uploadProgress}%
-                    </p>
-                  </div>
-                )}
-
                 <button
                   onClick={handleGenerate}
                   disabled={generating}
-                  className="btn btn-primary btn-lg animate-glow"
-                  style={{ width: '100%', justifyContent: 'center', fontSize: '1rem' }}
+                  style={{
+                    width: '100%', maxWidth: 480,
+                    padding: '18px', borderRadius: 10,
+                    background: generating ? '#3a3670' : '#6c63ff',
+                    color: 'white', border: 'none',
+                    fontSize: 16, fontWeight: 600,
+                    fontFamily: 'Geist, sans-serif',
+                    cursor: generating ? 'not-allowed' : 'pointer',
+                    transition: 'all 200ms ease',
+                    boxShadow: generating ? 'none' : '0 0 32px rgba(108,99,255,0.4)',
+                    display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', gap: 12,
+                    margin: '0 auto'
+                  }}
                 >
-                  <IconQrcode size={20} />
-                  {generating ? `Generating... ${uploadProgress}%` : 'Generate QR Codes'}
+                  {generating ? (
+                    <>
+                      <div style={{
+                        width: 18, height: 18, borderRadius: '50%',
+                        border: '2px solid rgba(255,255,255,0.3)',
+                        borderTopColor: 'white',
+                        animation: 'spin 600ms linear infinite'
+                      }} />
+                      Generating... {uploadProgress}%
+                    </>
+                  ) : (
+                    <>
+                      <svg width="20" height="20" viewBox="0 0 24 24" 
+                        fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="3" y="3" width="7" height="7"/>
+                        <rect x="14" y="3" width="7" height="7"/>
+                        <rect x="3" y="14" width="7" height="7"/>
+                        <rect x="14" y="14" width="3" height="3"/>
+                      </svg>
+                      Generate QR Codes
+                    </>
+                  )}
                 </button>
+
+                {generating && (
+                  <div style={{
+                    maxWidth: 480, margin: '16px auto 0',
+                    height: 4, background: 'rgba(255,255,255,0.05)',
+                    borderRadius: 2, overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      height: '100%', background: '#6c63ff',
+                      borderRadius: 2, width: `${uploadProgress}%`,
+                      transition: 'width 300ms ease',
+                      boxShadow: '0 0 8px rgba(108,99,255,0.6)'
+                    }} />
+                  </div>
+                )}
               </div>
             ) : (
               <div>
@@ -891,17 +1044,88 @@ export default function UploadPage({ params }: { params: { id: string } }) {
                   gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
                   gap: 16
                 }}>
-                  {generatedQRs.map((qr, i) => (
-                    <QRCard
-                      key={qr.qrUniqueId}
-                      qrUniqueId={qr.qrUniqueId}
-                      machineName={qr.machineName}
-                      fileName={qr.fileName}
-                      status={qr.status}
-                      expiryDate={qr.expiryDate}
-                      generatedDate={qr.generatedDate}
-                      animationDelay={i * 80}
-                    />
+                  {generatedQRs.map((qr) => (
+                    <div key={qr.qrUniqueId} style={{
+                      background: '#0d0f1a',
+                      border: '1px solid rgba(255,255,255,0.07)',
+                      borderRadius: 12, padding: 24,
+                      display: 'flex', flexDirection: 'column',
+                      alignItems: 'center', gap: 16,
+                      transition: 'border-color 200ms ease'
+                    }}>
+                      <div style={{
+                        background: 'white', padding: 12,
+                        borderRadius: 8
+                      }}>
+                        <QRCodeSVG 
+                          value={`${window.location.origin}/scan/${qr.qrUniqueId}`}
+                          size={160}
+                        />
+                      </div>
+
+                      <span style={{
+                        fontFamily: 'JetBrains Mono, monospace',
+                        fontSize: 11, fontWeight: 700,
+                        letterSpacing: '0.08em', textTransform: 'uppercase',
+                        padding: '4px 12px', borderRadius: 20,
+                        background: qr.status === 'pass' ? 'rgba(61,255,160,0.1)'
+                          : qr.status === 'fail' ? 'rgba(255,90,90,0.1)'
+                          : 'rgba(240,192,96,0.1)',
+                        color: qr.status === 'pass' ? '#3dffa0'
+                          : qr.status === 'fail' ? '#ff5a5a'
+                          : '#f0c060',
+                        border: `1px solid ${qr.status === 'pass' ? 'rgba(61,255,160,0.2)'
+                          : qr.status === 'fail' ? 'rgba(255,90,90,0.2)'
+                          : 'rgba(240,192,96,0.2)'}`
+                      }}>
+                        {qr.status === 'pass' ? '✓ Pass' 
+                          : qr.status === 'fail' ? '✕ Fail' 
+                          : '⚠ Needs Attention'}
+                      </span>
+
+                      <div style={{textAlign: 'center', width: '100%'}}>
+                        <p style={{
+                          fontFamily: 'Geist, sans-serif',
+                          fontWeight: 600, fontSize: 14,
+                          marginBottom: 4, overflow: 'hidden',
+                          textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                        }}>{qr.fileName}</p>
+                        <p style={{
+                          fontFamily: 'JetBrains Mono, monospace',
+                          fontSize: 10, color: '#5e5c80', letterSpacing: '0.08em'
+                        }}>ID: {qr.qrUniqueId}</p>
+                      </div>
+
+                      <div style={{
+                        width: '100%', padding: '10px 12px',
+                        background: 'rgba(255,255,255,0.03)',
+                        borderRadius: 6, textAlign: 'center'
+                      }}>
+                        <p style={{
+                          fontFamily: 'JetBrains Mono, monospace',
+                          fontSize: 10, color: '#5e5c80',
+                          textTransform: 'uppercase', letterSpacing: '0.08em',
+                          marginBottom: 4
+                        }}>Expires</p>
+                        <p style={{fontSize: 13, color: '#9896b8'}}>
+                          {qr.expiryDate 
+                            ? new Date(qr.expiryDate).toLocaleDateString()
+                            : 'Never'}
+                        </p>
+                      </div>
+
+                      <button style={{
+                        width: '100%', padding: '10px',
+                        background: 'rgba(108,99,255,0.1)',
+                        border: '1px solid rgba(108,99,255,0.2)',
+                        borderRadius: 8, color: '#a89cff',
+                        fontSize: 13, cursor: 'pointer',
+                        fontFamily: 'Inter, sans-serif',
+                        transition: 'all 150ms ease'
+                      }}>
+                        Download QR
+                      </button>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -916,7 +1140,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
             marginTop: 32, paddingTop: 24, borderTop: '1px solid var(--border)'
           }}>
             {currentStep > 0 ? (
-              <button onClick={() => setCurrentStep(s => s - 1)} className="btn btn-secondary">
+              <button onClick={goPrevStep} className="btn btn-secondary">
                 <IconArrowLeft size={16} />
                 Back
               </button>
@@ -924,7 +1148,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
 
             {currentStep < STEPS.length - 1 && (
               <button
-                onClick={() => setCurrentStep(s => s + 1)}
+                onClick={goNextStep}
                 disabled={!canProceed()}
                 className="btn btn-primary"
               >
