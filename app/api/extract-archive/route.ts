@@ -11,13 +11,12 @@ export async function POST(request: NextRequest) {
     }
 
     const arrayBuffer = await file.arrayBuffer()
-    const uint8Array = new Uint8Array(arrayBuffer)
     const fileName = file.name.toLowerCase()
     const files: { name: string; path: string; size: number }[] = []
 
     if (fileName.endsWith('.zip')) {
       const JSZip = (await import('jszip')).default
-      const zip = await JSZip.loadAsync(uint8Array)
+      const zip = await JSZip.loadAsync(arrayBuffer)
       
       Object.keys(zip.files).forEach(path => {
         const zipFile = zip.files[path]
@@ -31,7 +30,7 @@ export async function POST(request: NextRequest) {
         }
       })
     } else if (fileName.endsWith('.rar')) {
-      const extractor = await createExtractorFromData({ data: uint8Array })
+      const extractor = await createExtractorFromData({ data: arrayBuffer })
       const list = extractor.getFileList()
       const fileList = [...list.fileHeaders]
       
