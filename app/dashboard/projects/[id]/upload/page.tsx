@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import JSZip from 'jszip'
+// @ts-expect-error
 import { Archive } from 'libarchive.js/main.js'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
 
