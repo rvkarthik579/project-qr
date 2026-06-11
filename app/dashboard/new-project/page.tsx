@@ -16,48 +16,52 @@ export default function NewProjectPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  async function handleCreate(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!machineName.trim()) { setError('Machine name is required'); return }
-    setError('')
+    if (!machineName.trim()) return
+    
     setLoading(true)
+    setError('')
 
     try {
       const supabase = getSupabaseBrowserClient()
-
-      // DEBUG: verify session is present
-      const { data: { user } } = await supabase.auth.getUser()
-      console.log('Current user:', user)
-
-      if (!user) {
-        console.error('No active session — redirecting to login')
+      
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      
+      if (authError || !user) {
         router.push('/login')
         return
       }
 
-      const { data, error: dbError } = await supabase
+      const { data: project, error: insertError } = await supabase
         .from('projects')
         .insert({
           user_id: user.id,
           machine_name: machineName.trim(),
           location: location.trim() || null,
-          project_type: projectType,
+          project_type: projectType || null,
         })
-        .select()
+        .select('id')
         .single()
 
-      console.log('Insert result:', data, dbError)
-
-      if (dbError) {
-        setError(dbError.message)
-        setLoading(false)
+      if (insertError) {
+        console.error('Insert error:', insertError)
+        setError('Failed to create project: ' + insertError.message)
         return
       }
 
-      router.push(`/dashboard/projects/${data.id}/upload`)
+      if (!project?.id) {
+        setError('Project created but no ID returned. Please try again.')
+        return
+      }
+
+      // Only redirect AFTER confirmed successful insert
+      router.push(`/dashboard/projects/${project.id}/upload`)
+
     } catch (err) {
       console.error('Unexpected error:', err)
-      setError('Failed to create project. Please try again.')
+      setError('Something went wrong. Please try again.')
+    } finally {
       setLoading(false)
     }
   }
@@ -90,7 +94,7 @@ export default function NewProjectPage() {
 
       {/* Form */}
       <div className="card animate-fade-up" style={{ padding: 32 }}>
-        <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           <div>
             <label className="label">
               Machine Name <span style={{ color: 'var(--danger)' }}>*</span>

@@ -91,46 +91,55 @@ export default function DashboardPage() {
   }
 
   async function deleteProject(projectId: string) {
-    if (!confirm('Delete this project? This will also delete all reports, QR codes, and files. This cannot be undone.')) return
-    
+    if (!confirm('Delete this project? This will delete all reports, QR codes, and files permanently.')) return
+
     const supabase = getSupabaseBrowserClient()
-    
-    // Delete files from storage
-    const { data: reportData } = await supabase
-      .from('reports')
-      .select('id')
-      .eq('project_id', projectId)
 
-    if (reportData && reportData.length > 0) {
-      const reportIds = reportData.map(r => r.id)
-      
-      const { data: fileData } = await supabase
-        .from('files')
-        .select('file_path')
-        .in('report_id', reportIds)
+    try {
+      // Get all report IDs for this project
+      const { data: reports } = await supabase
+        .from('reports')
+        .select('id')
+        .eq('project_id', projectId)
 
-      if (fileData && fileData.length > 0) {
-        const paths = fileData.map(f => f.file_path)
-        await supabase.storage
-          .from('project-qr-files')
-          .remove(paths)
+      if (reports && reports.length > 0) {
+        const reportIds = reports.map(r => r.id)
+
+        // Get all file paths to delete from storage
+        const { data: files } = await supabase
+          .from('files')
+          .select('file_path')
+          .in('report_id', reportIds)
+
+        if (files && files.length > 0) {
+          const paths = files.map(f => f.file_path).filter(Boolean)
+          if (paths.length > 0) {
+            await supabase.storage
+              .from('project-qr-files')
+              .remove(paths)
+          }
+        }
       }
+
+      // Delete project — cascade handles reports, files, qr_codes, scan_logs
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', projectId)
+
+      if (error) {
+        console.error('Delete error:', error)
+        alert('Failed to delete project: ' + error.message)
+        return
+      }
+
+      // Only update UI after confirmed database deletion
+      setProjects(prev => prev.filter(p => p.id !== projectId))
+
+    } catch (err) {
+      console.error('Unexpected delete error:', err)
+      alert('Something went wrong. Please try again.')
     }
-
-    // Delete project (cascade deletes reports, files, qr_codes, scan_logs)
-    const { error } = await supabase
-      .from('projects')
-      .delete()
-      .eq('id', projectId)
-
-    if (error) {
-      console.error('Delete error:', error)
-      alert(`Failed to delete project: ${error.message}`)
-      return
-    }
-
-    // Remove from UI only after successful database response
-    setProjects(prev => prev.filter(p => p.id !== projectId))
   }
 
   return (

@@ -1,341 +1,464 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import PinEntry from '@/components/scan/PinEntry'
-import FileViewer from '@/components/scan/FileViewer'
-import { IconQrcode, IconAlertTriangle, IconClock } from '@tabler/icons-react'
+import { createClient } from '@supabase/supabase-js'
 
-type ScanState = 'loading' | 'pin_required' | 'valid' | 'expired' | 'revoked' | 'locked' | 'error'
+// CRITICAL: Use anonymous client — NO auth required for scanning
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
-interface ScanData {
-  fileName: string
-  fileUrl: string
-  fileSize?: number
-  status: 'pass' | 'fail' | 'needs_attention'
-  machineName: string
-  reportDate: string
-  expiryDate: string | null
-  remarks?: string
-  nextInspectionDate?: string
-  companyName?: string
-  uploaderName?: string
-  requiresPin: boolean
-}
-
-const statusConfig = {
-  pass: { label: 'PASS', color: 'var(--success)', bg: 'rgba(61,255,160,0.08)', border: 'rgba(61,255,160,0.2)' },
-  fail: { label: 'FAIL', color: 'var(--danger)', bg: 'rgba(255,90,90,0.08)', border: 'rgba(255,90,90,0.2)' },
-  needs_attention: { label: 'NEEDS ATTENTION', color: 'var(--warning)', bg: 'rgba(240,192,96,0.08)', border: 'rgba(240,192,96,0.2)' },
+interface QRData {
+  id: string
+  qr_unique_id: string
+  is_active: boolean
+  expiry_date: string | null
+  password_hash: string | null
+  files: {
+    id: string
+    file_name: string
+    file_path: string
+    file_type: string
+    file_size: number
+  }
+  reports: {
+    status: string
+    remarks: string | null
+    next_inspection_date: string | null
+  }
 }
 
 export default function ScanPage({ params }: { params: { qr_id: string } }) {
-  const { qr_id } = params as { qr_id: string }
-  const [state, setState] = useState<ScanState>('loading')
-  const [scanData, setScanData] = useState<ScanData | null>(null)
-  const [pinError, setPinError] = useState(false)
-  const [attemptsLeft, setAttemptsLeft] = useState(3)
-  const [expiredDate, setExpiredDate] = useState<string | null>(null)
-  const [errorMessage, setErrorMessage] = useState('')
+  const qrId = (params as { qr_id: string }).qr_id
+  const [qrData, setQrData] = useState<QRData | null>(null)
+  const [status, setStatus] = useState<'loading' | 'valid' | 'expired' | 'revoked' | 'invalid' | 'pin'>('loading')
+  const [pin, setPin] = useState('')
+  const [pinError, setPinError] = useState('')
+  const [pinAttempts, setPinAttempts] = useState(0)
+  const [fileUrl, setFileUrl] = useState('')
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {})
-    }
-    fetchScanData()
-  }, [qr_id])
+    loadQR()
+  }, [qrId])
 
-  async function fetchScanData(pin?: string) {
+  async function loadQR() {
     try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-
-      const { data: qrCode, error } = await supabase
+      const { data, error } = await supabase
         .from('qr_codes')
-        .select('*, files(*, reports(*, projects(*)))')
-        .eq('qr_unique_id', qr_id)
+        .select('*, files(*), reports(*)')
+        .eq('qr_unique_id', qrId)
         .single()
 
-      if (error || !qrCode) {
-        setErrorMessage('Invalid QR code')
-        setState('error')
-        return
-      }
-      
-      if (!qrCode.is_active) {
-        setState('revoked')
-        return
-      }
-      
-      if (qrCode.expiry_date && new Date(qrCode.expiry_date) < new Date()) {
-        setExpiredDate(qrCode.expiry_date)
-        setState('expired')
+      if (error || !data) {
+        setStatus('invalid')
         return
       }
 
-      // Map the qrCode data to ScanData
-      const file = qrCode.files
-      const report = file?.reports
-      const project = report?.projects
-      
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('project-qr-files')
-        .getPublicUrl(file?.file_path || '')
+      // Log scan attempt
+      await supabase.from('scan_logs').insert({
+        qr_id: data.id,
+        scanned_at: new Date().toISOString(),
+        device_type: navigator.userAgent,
+        was_blocked: false
+      })
 
-      const scanDataObj: ScanData = {
-        fileName: file?.file_name || 'Unknown',
-        fileUrl: publicUrl,
-        fileSize: file?.file_size,
-        status: report?.status || 'pass',
-        machineName: project?.machine_name || 'Unknown',
-        reportDate: report?.created_at || new Date().toISOString(),
-        expiryDate: qrCode.expiry_date,
-        remarks: report?.remarks,
-        requiresPin: false
+      if (!data.is_active) {
+        setStatus('revoked')
+        return
       }
-      
-      setScanData(scanDataObj)
-      setState('valid')
-      
-      // Cache for offline
-      if ('caches' in window) {
-        try {
-          const cache = await caches.open('project-qr-scan-v1')
-          cache.add(window.location.href)
-        } catch {}
+
+      if (data.expiry_date && new Date(data.expiry_date) < new Date()) {
+        // Log blocked scan
+        await supabase.from('scan_logs').insert({
+          qr_id: data.id,
+          scanned_at: new Date().toISOString(),
+          was_blocked: true,
+          block_reason: 'expired'
+        })
+        setStatus('expired')
+        return
       }
-    } catch {
-      setErrorMessage('Network error. Check your connection.')
-      setState('error')
+
+      setQrData(data)
+
+      if (data.password_hash) {
+        setStatus('pin')
+      } else {
+        await loadFileUrl(data.files.file_path)
+        setStatus('valid')
+      }
+
+    } catch (err) {
+      console.error('Scan error:', err)
+      setStatus('invalid')
     }
   }
 
-  async function handlePinSubmit(pin: string) {
-    setPinError(false)
-    await fetchScanData(pin)
+  async function loadFileUrl(filePath: string) {
+    const { data } = await supabase.storage
+      .from('project-qr-files')
+      .createSignedUrl(filePath, 3600)
+    if (data?.signedUrl) setFileUrl(data.signedUrl)
   }
 
-  // Loading state
-  if (state === 'loading') {
-    return (
-      <ScanShell>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
-          <div style={{
-            width: 60, height: 60,
-            background: 'rgba(108,99,255,0.1)',
-            borderRadius: 16,
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}>
-            <IconQrcode size={28} color="var(--accent-light)" />
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div className="skeleton" style={{ height: 20, width: 200, margin: '0 auto 12px' }} />
-            <div className="skeleton" style={{ height: 16, width: 150, margin: '0 auto' }} />
-          </div>
-          <div className="skeleton" style={{ height: 52, width: '100%', maxWidth: 320, borderRadius: 10 }} />
+  async function verifyPin() {
+    if (pin.length !== 4) return
+    if (pinAttempts >= 3) return
+
+    try {
+      const response = await fetch('/api/qr/verify-pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          pin, 
+          passwordHash: qrData?.password_hash 
+        })
+      })
+      const { valid } = await response.json()
+
+      if (valid) {
+        await loadFileUrl(qrData!.files.file_path)
+        setStatus('valid')
+      } else {
+        setPinAttempts(a => a + 1)
+        setPinError(pinAttempts >= 2 ? 'Too many attempts. Access locked.' : 'Wrong PIN. Try again.')
+        setPin('')
+        if (pinAttempts >= 2) {
+          await supabase.from('scan_logs').insert({
+            qr_id: qrData!.id,
+            scanned_at: new Date().toISOString(),
+            was_blocked: true,
+            block_reason: 'too_many_pin_attempts'
+          })
+        }
+      }
+    } catch {
+      setPinError('Verification failed. Try again.')
+    }
+  }
+
+  // STATUS: LOADING
+  if (status === 'loading') return (
+    <div style={{
+      minHeight: '100vh', background: '#07080f',
+      display: 'flex', alignItems: 'center', justifyContent: 'center'
+    }}>
+      <div style={{
+        width: 32, height: 32, borderRadius: '50%',
+        border: '2px solid rgba(108,99,255,0.3)',
+        borderTopColor: '#6c63ff',
+        animation: 'spin 600ms linear infinite'
+      }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  )
+
+  // STATUS: INVALID
+  if (status === 'invalid') return (
+    <div style={{
+      minHeight: '100vh', background: '#07080f',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 24, fontFamily: 'Inter, sans-serif'
+    }}>
+      <div style={{ textAlign: 'center', maxWidth: 320 }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
+        <h1 style={{
+          fontFamily: 'Geist, sans-serif',
+          fontSize: 22, fontWeight: 700, color: '#f0eeff', marginBottom: 8
+        }}>Invalid QR Code</h1>
+        <p style={{ color: '#9896b8', fontSize: 14 }}>
+          This QR code does not exist or has been removed.
+        </p>
+      </div>
+    </div>
+  )
+
+  // STATUS: REVOKED
+  if (status === 'revoked') return (
+    <div style={{
+      minHeight: '100vh', background: '#07080f',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 24, fontFamily: 'Inter, sans-serif'
+    }}>
+      <div style={{ textAlign: 'center', maxWidth: 320 }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>🚫</div>
+        <h1 style={{
+          fontFamily: 'Geist, sans-serif',
+          fontSize: 22, fontWeight: 700, color: '#ff5a5a', marginBottom: 8
+        }}>Access Revoked</h1>
+        <p style={{ color: '#9896b8', fontSize: 14 }}>
+          This QR code has been revoked by the owner.
+        </p>
+      </div>
+    </div>
+  )
+
+  // STATUS: EXPIRED
+  if (status === 'expired') return (
+    <div style={{
+      minHeight: '100vh', background: '#07080f',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 24, fontFamily: 'Inter, sans-serif'
+    }}>
+      <div style={{ textAlign: 'center', maxWidth: 320 }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>⏰</div>
+        <h1 style={{
+          fontFamily: 'Geist, sans-serif',
+          fontSize: 22, fontWeight: 700, color: '#f0c060', marginBottom: 8
+        }}>QR Code Expired</h1>
+        <p style={{ color: '#9896b8', fontSize: 14 }}>
+          This QR code expired on{' '}
+          {qrData?.expiry_date 
+            ? new Date(qrData.expiry_date).toLocaleDateString() 
+            : 'an unknown date'}.
+        </p>
+      </div>
+    </div>
+  )
+
+  // STATUS: PIN
+  if (status === 'pin') return (
+    <div style={{
+      minHeight: '100vh', background: '#07080f',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 24, fontFamily: 'Inter, sans-serif'
+    }}>
+      <div style={{ textAlign: 'center', maxWidth: 320, width: '100%' }}>
+        <div style={{
+          width: 64, height: 64,
+          background: 'rgba(108,99,255,0.1)',
+          border: '1px solid rgba(108,99,255,0.2)',
+          borderRadius: 16, margin: '0 auto 24px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 28
+        }}>🔒</div>
+        <h1 style={{
+          fontFamily: 'Geist, sans-serif',
+          fontSize: 22, fontWeight: 700, color: '#f0eeff', marginBottom: 8
+        }}>PIN Required</h1>
+        <p style={{ color: '#9896b8', fontSize: 14, marginBottom: 32 }}>
+          Enter the 4-digit PIN to access this file.
+        </p>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginBottom: 24 }}>
+          {[0,1,2,3].map(i => (
+            <input
+              key={i}
+              type="text"
+              maxLength={1}
+              value={pin[i] || ''}
+              onChange={e => {
+                const val = e.target.value.replace(/\D/g, '')
+                const newPin = pin.split('')
+                newPin[i] = val
+                const joined = newPin.join('').slice(0, 4)
+                setPin(joined)
+                if (val && i < 3) {
+                  const next = document.getElementById(`pin-${i+1}`)
+                  next?.focus()
+                }
+              }}
+              id={`pin-${i}`}
+              style={{
+                width: 56, height: 64,
+                background: '#0d0f1a',
+                border: `1px solid ${pinError ? 'rgba(255,90,90,0.4)' : 'rgba(255,255,255,0.12)'}`,
+                borderRadius: 10,
+                color: '#f0eeff', fontSize: 24,
+                fontFamily: 'JetBrains Mono, monospace',
+                textAlign: 'center', outline: 'none'
+              }}
+            />
+          ))}
         </div>
-      </ScanShell>
-    )
-  }
-
-  // PIN required
-  if (state === 'pin_required') {
-    return (
-      <ScanShell>
-        <PinEntry
-          onSubmit={handlePinSubmit}
-          error={pinError}
-          locked={false}
-          attemptsLeft={attemptsLeft}
-        />
-      </ScanShell>
-    )
-  }
-
-  // Locked
-  if (state === 'locked') {
-    return (
-      <ScanShell>
-        <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
-          <div style={{ width: 64, height: 64, background: 'rgba(255,90,90,0.1)', border: '1px solid rgba(255,90,90,0.2)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <IconAlertTriangle size={28} color="var(--danger)" />
-          </div>
-          <h1 className="font-geist" style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--danger)' }}>
-            Access Locked
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', maxWidth: 300, lineHeight: 1.7 }}>
-            Too many incorrect PIN attempts. Contact the report owner for access.
+        {pinError && (
+          <p style={{ color: '#ff5a5a', fontSize: 13, marginBottom: 16 }}>
+            {pinError}
           </p>
-        </div>
-      </ScanShell>
-    )
-  }
+        )}
+        <button
+          onClick={verifyPin}
+          disabled={pin.length !== 4 || pinAttempts >= 3}
+          style={{
+            width: '100%', padding: '14px',
+            background: pin.length === 4 ? '#6c63ff' : '#1a1a2e',
+            color: pin.length === 4 ? 'white' : '#5e5c80',
+            border: 'none', borderRadius: 10,
+            fontSize: 15, fontWeight: 600,
+            fontFamily: 'Geist, sans-serif',
+            cursor: pin.length === 4 ? 'pointer' : 'not-allowed',
+            transition: 'all 150ms ease'
+          }}
+        >
+          Unlock
+        </button>
+      </div>
+    </div>
+  )
 
-  // Expired
-  if (state === 'expired') {
-    return (
-      <ScanShell>
-        <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
-          <div style={{ width: 64, height: 64, background: 'rgba(255,90,90,0.1)', border: '1px solid rgba(255,90,90,0.2)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <IconClock size={28} color="var(--danger)" />
-          </div>
-          <h1 className="font-geist" style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--danger)' }}>
-            QR Code Expired
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', maxWidth: 320, lineHeight: 1.7 }}>
-            This QR code expired on{' '}
-            <strong style={{ color: 'var(--text-primary)' }}>
-              {expiredDate ? new Date(expiredDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'an earlier date'}
-            </strong>. Contact the report owner for an updated code.
-          </p>
-        </div>
-      </ScanShell>
-    )
-  }
-
-  // Revoked
-  if (state === 'revoked') {
-    return (
-      <ScanShell>
-        <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
-          <div style={{ width: 64, height: 64, background: 'rgba(255,90,90,0.1)', border: '1px solid rgba(255,90,90,0.2)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <IconAlertTriangle size={28} color="var(--danger)" />
-          </div>
-          <h1 className="font-geist" style={{ fontSize: '1.5rem', fontWeight: 700 }}>QR Code Revoked</h1>
-          <p style={{ color: 'var(--text-secondary)', maxWidth: 300, lineHeight: 1.7 }}>
-            This QR code has been deactivated by the report owner. Contact them for an updated code.
-          </p>
-        </div>
-      </ScanShell>
-    )
-  }
-
-  // Error
-  if (state === 'error') {
-    return (
-      <ScanShell>
-        <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
-          <div style={{ width: 64, height: 64, background: 'rgba(255,90,90,0.1)', border: '1px solid rgba(255,90,90,0.2)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <IconAlertTriangle size={28} color="var(--danger)" />
-          </div>
-          <h1 className="font-geist" style={{ fontSize: '1.5rem', fontWeight: 700 }}>Not Found</h1>
-          <p style={{ color: 'var(--text-secondary)', maxWidth: 300, lineHeight: 1.7 }}>{errorMessage}</p>
-        </div>
-      </ScanShell>
-    )
-  }
-
-  // Valid — show file
-  if (state === 'valid' && scanData) {
-    const s = statusConfig[scanData.status] || statusConfig.needs_attention
-    return (
-      <ScanShell>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, width: '100%' }}>
-          {/* Status — huge and bold */}
-          <div style={{
-            width: '100%', maxWidth: 480,
-            padding: '24px 32px',
-            background: s.bg,
-            border: `2px solid ${s.border}`,
-            borderRadius: 16,
-            textAlign: 'center',
-          }}>
-            <div style={{
-              fontFamily: 'Geist, sans-serif',
-              fontSize: 'clamp(2rem, 10vw, 3.5rem)',
-              fontWeight: 800,
-              color: s.color,
-              letterSpacing: '-0.02em',
-              lineHeight: 1,
-            }}>
-              {s.label}
-            </div>
-          </div>
-
-          {/* Machine name */}
-          <div style={{ textAlign: 'center' }}>
-            <h1 className="font-geist" style={{ fontSize: 'clamp(1.25rem, 5vw, 1.75rem)', fontWeight: 700, marginBottom: 4 }}>
-              {scanData.machineName}
-            </h1>
-            <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.75rem', color: 'var(--accent-light)' }}>
-              {qr_id}
-            </p>
-          </div>
-
-          {/* File viewer */}
-          <FileViewer
-            fileName={scanData.fileName}
-            fileUrl={scanData.fileUrl}
-            fileSize={scanData.fileSize}
-            machineName={scanData.machineName}
-            reportDate={scanData.reportDate}
-            remarks={scanData.remarks}
-            nextInspectionDate={scanData.nextInspectionDate}
-            companyName={scanData.companyName}
-            uploaderName={scanData.uploaderName}
-          />
-
-          {/* Footer */}
-          <div style={{ 
-            marginTop: 8, paddingTop: 20, borderTop: '1px solid var(--border)',
-            width: '100%', maxWidth: 480, textAlign: 'center'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 4 }}>
-              <IconQrcode size={14} color="var(--text-muted)" />
-              <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                Powered by Project QR
-              </span>
-            </div>
-            {scanData.expiryDate && (
-              <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                Expires {new Date(scanData.expiryDate).toLocaleDateString()}
-              </p>
-            )}
-          </div>
-        </div>
-      </ScanShell>
-    )
-  }
-
-  return null
-}
-
-function ScanShell({ children }: { children: React.ReactNode }) {
+  // STATUS: VALID — Main scan view
   return (
     <div style={{
-      minHeight: '100vh',
-      background: 'var(--bg-base)',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '24px 16px',
+      minHeight: '100vh', background: '#07080f',
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      padding: 24, fontFamily: 'Inter, sans-serif'
     }}>
-      {/* Logo bar */}
-      <div style={{
-        position: 'fixed', top: 0, left: 0, right: 0,
-        padding: '16px 20px',
-        background: 'rgba(7,8,15,0.8)',
-        backdropFilter: 'blur(10px)',
-        borderBottom: '1px solid var(--border)',
-        display: 'flex', alignItems: 'center', gap: 8,
-        zIndex: 10
-      }}>
-        <div style={{ width: 24, height: 24, background: 'var(--accent)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <IconQrcode size={14} color="white" />
+      <div style={{ width: '100%', maxWidth: 400 }}>
+        
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            fontFamily: 'JetBrains Mono, monospace',
+            fontSize: 11, color: '#5e5c80',
+            letterSpacing: '0.1em', textTransform: 'uppercase',
+            marginBottom: 8
+          }}>
+            <div style={{
+              width: 6, height: 6, borderRadius: '50%',
+              background: '#3dffa0', boxShadow: '0 0 6px #3dffa0'
+            }} />
+            Project QR
+          </div>
         </div>
-        <span className="font-geist" style={{ fontSize: '0.875rem', fontWeight: 700 }}>Project QR</span>
-      </div>
 
-      <div className="animate-fade-up" style={{ 
-        width: '100%', maxWidth: 520, 
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        paddingTop: 64
-      }}>
-        {children}
+        {/* Status badge */}
+        <div style={{
+          display: 'flex', justifyContent: 'center', marginBottom: 24
+        }}>
+          <span style={{
+            fontFamily: 'JetBrains Mono, monospace',
+            fontSize: 13, fontWeight: 700,
+            letterSpacing: '0.06em', textTransform: 'uppercase',
+            padding: '8px 20px', borderRadius: 24,
+            background: qrData?.reports?.status === 'pass' 
+              ? 'rgba(61,255,160,0.1)' 
+              : qrData?.reports?.status === 'fail'
+              ? 'rgba(255,90,90,0.1)'
+              : 'rgba(240,192,96,0.1)',
+            color: qrData?.reports?.status === 'pass' ? '#3dffa0'
+              : qrData?.reports?.status === 'fail' ? '#ff5a5a'
+              : '#f0c060',
+            border: `1px solid ${
+              qrData?.reports?.status === 'pass' ? 'rgba(61,255,160,0.2)'
+              : qrData?.reports?.status === 'fail' ? 'rgba(255,90,90,0.2)'
+              : 'rgba(240,192,96,0.2)'
+            }`
+          }}>
+            {qrData?.reports?.status === 'pass' ? '✓ Pass'
+              : qrData?.reports?.status === 'fail' ? '✕ Fail'
+              : '⚠ Needs Attention'}
+          </span>
+        </div>
+
+        {/* File card */}
+        <div style={{
+          background: '#0d0f1a',
+          border: '1px solid rgba(255,255,255,0.07)',
+          borderRadius: 16, padding: 24, marginBottom: 16
+        }}>
+          <p style={{
+            fontFamily: 'JetBrains Mono, monospace',
+            fontSize: 10, color: '#5e5c80',
+            letterSpacing: '0.1em', textTransform: 'uppercase',
+            marginBottom: 8
+          }}>File</p>
+          <p style={{
+            fontFamily: 'Geist, sans-serif',
+            fontSize: 18, fontWeight: 700, color: '#f0eeff',
+            marginBottom: 4, wordBreak: 'break-all'
+          }}>
+            {qrData?.files?.file_name}
+          </p>
+          <p style={{
+            fontFamily: 'JetBrains Mono, monospace',
+            fontSize: 11, color: '#5e5c80'
+          }}>
+            {qrData?.files?.file_size 
+              ? `${(qrData.files.file_size / 1024 / 1024).toFixed(1)} MB`
+              : ''
+            }
+          </p>
+        </div>
+
+        {/* Remarks */}
+        {qrData?.reports?.remarks && (
+          <div style={{
+            background: '#0d0f1a',
+            border: '1px solid rgba(255,255,255,0.07)',
+            borderRadius: 12, padding: 16, marginBottom: 16
+          }}>
+            <p style={{
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: 10, color: '#5e5c80',
+              letterSpacing: '0.1em', textTransform: 'uppercase',
+              marginBottom: 8
+            }}>Remarks</p>
+            <p style={{ fontSize: 14, color: '#9896b8', lineHeight: 1.6 }}>
+              {qrData.reports.remarks}
+            </p>
+          </div>
+        )}
+
+        {/* Next inspection */}
+        {qrData?.reports?.next_inspection_date && (
+          <div style={{
+            background: 'rgba(108,99,255,0.06)',
+            border: '1px solid rgba(108,99,255,0.15)',
+            borderRadius: 12, padding: 14, marginBottom: 16
+          }}>
+            <p style={{
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: 10, color: '#5e5c80',
+              letterSpacing: '0.1em', textTransform: 'uppercase',
+              marginBottom: 4
+            }}>Next Inspection</p>
+            <p style={{ fontSize: 14, color: '#a89cff', fontWeight: 500 }}>
+              {new Date(qrData.reports.next_inspection_date).toLocaleDateString()}
+            </p>
+          </div>
+        )}
+
+        {/* QR ID */}
+        <p style={{
+          fontFamily: 'JetBrains Mono, monospace',
+          fontSize: 10, color: '#5e5c80',
+          textAlign: 'center', marginBottom: 24,
+          letterSpacing: '0.08em'
+        }}>
+          ID: {qrData?.qr_unique_id}
+        </p>
+
+        {/* Download button */}
+        {fileUrl ? (
+          <a
+            href={fileUrl}
+            download={qrData?.files?.file_name}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: 10, width: '100%', padding: '16px',
+              background: '#6c63ff', color: 'white',
+              borderRadius: 12, fontSize: 16, fontWeight: 600,
+              fontFamily: 'Geist, sans-serif',
+              textDecoration: 'none',
+              boxShadow: '0 0 24px rgba(108,99,255,0.3)'
+            }}
+          >
+            ↓ Download File
+          </a>
+        ) : (
+          <button style={{
+            width: '100%', padding: '16px',
+            background: '#1a1a2e', color: '#5e5c80',
+            border: '1px solid rgba(255,255,255,0.07)',
+            borderRadius: 12, fontSize: 15,
+            fontFamily: 'Geist, sans-serif', cursor: 'not-allowed'
+          }}>
+            Preparing download...
+          </button>
+        )}
+
       </div>
     </div>
   )
