@@ -133,10 +133,14 @@ export default function DashboardPage() {
       .delete()
       .eq('id', projectId)
 
-    if (!error) {
-      // Remove from UI immediately (optimistic update)
-      setProjects(prev => prev.filter(p => p.id !== projectId))
+    if (error) {
+      console.error('Delete error:', error)
+      alert(`Failed to delete project: ${error.message}`)
+      return
     }
+
+    // Remove from UI only after successful database response
+    setProjects(prev => prev.filter(p => p.id !== projectId))
   }
 
   return (
