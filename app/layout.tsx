@@ -33,6 +33,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <script dangerouslySetInnerHTML={{
+          __html: `
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.getRegistrations().then(registrations => {
+                registrations.forEach(r => r.unregister())
+              })
+              caches.keys().then(keys => {
+                keys.forEach(key => caches.delete(key))
+              })
+            }
+          `
+        }} />
+      </head>
       <body className={`${GeistSans.variable} ${inter.variable} ${jetbrainsMono.variable}`}>
         {children}
       </body>
