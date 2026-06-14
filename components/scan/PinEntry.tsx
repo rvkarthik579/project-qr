@@ -30,10 +30,12 @@ export default function PinEntry({ onSubmit, error, locked, lockSecondsRemaining
         inputRefs[0].current?.focus()
       }, 400)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [error])
 
   useEffect(() => {
     inputRefs[0].current?.focus()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function handleChange(index: number, value: string) {

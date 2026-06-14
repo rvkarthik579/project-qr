@@ -375,7 +375,7 @@ export default function LandingPage() {
             fontSize: 11, color: '#818cf8',
             letterSpacing: '0.12em', textTransform: 'uppercase',
             marginBottom: 16
-          }}>// The Protocol</div>
+          }}>{"// The Protocol"}</div>
           <h2 style={{
             fontFamily: 'Geist, sans-serif',
             fontSize: 'clamp(32px, 4vw, 52px)',
@@ -468,7 +468,7 @@ export default function LandingPage() {
             fontSize: 11, color: '#818cf8',
             letterSpacing: '0.12em', textTransform: 'uppercase',
             marginBottom: 16
-          }}>// Platform Capabilities</div>
+          }}>{"// Platform Capabilities"}</div>
           <h2 style={{
             fontFamily: 'Geist, sans-serif',
             fontSize: 'clamp(32px, 4vw, 52px)',
