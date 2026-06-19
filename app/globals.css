@@ -9,22 +9,19 @@
    ============================================ */
 
 :root {
-  --bg-base: #080c14;
-  --bg-card: #0d1220;
-  --bg-hover: #111827;
-  --bg-surface: #0a0f1e;
-  --accent: #6366f1;
-  --accent-2: #818cf8;
-  --accent-3: #a5b4fc;
-  --success: #34d399;
-  --warning: #fbbf24;
-  --danger: #f87171;
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #475569;
-  --border: rgba(148,163,184,0.08);
-  --border-hover: rgba(148,163,184,0.15);
-  --glow: rgba(99,102,241,0.15);
+  --bg-base: #07080f;
+  --bg-card: #0d0f1a;
+  --bg-hover: #12152b;
+  --accent: #6c63ff;
+  --accent-light: #a89cff;
+  --success: #3dffa0;
+  --warning: #f0c060;
+  --danger: #ff5a5a;
+  --text-primary: #f0eeff;
+  --text-secondary: #9896b8;
+  --text-muted: #5e5c80;
+  --border: rgba(255,255,255,0.07);
+  --border-hover: rgba(255,255,255,0.12);
   --border-active: rgba(108, 99, 255, 0.4);
   
   /* Spacing */
@@ -56,7 +53,7 @@ html {
 }
 
 body {
-  background-color: #080c14;
+  background-color: var(--bg-base);
   color: var(--text-primary);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   line-height: 1.6;
@@ -104,14 +101,14 @@ h1, h2, h3 {
    ============================================ */
 
 .card {
-  background: #0d1220;
-  border: 1px solid rgba(148,163,184,0.08);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 12px;
   transition: border-color 150ms ease;
 }
 
 .card:hover {
-  border-color: rgba(148,163,184,0.15);
+  border-color: var(--border-hover);
 }
 
 .card-interactive {
@@ -144,13 +141,12 @@ h1, h2, h3 {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #6366f1, #818cf8);
-  box-shadow: 0 0 20px rgba(99,102,241,0.3);
+  background: var(--accent);
   color: white;
 }
 
 .btn-primary:hover {
-  box-shadow: 0 0 30px rgba(99,102,241,0.5);
+  background: #7c74ff;
   transform: translateY(-1px);
 }
 
@@ -449,8 +445,8 @@ h1, h2, h3 {
 .sidebar {
   width: 220px;
   min-height: 100vh;
-  background: #0a0f1e;
-  border-right: 1px solid rgba(148,163,184,0.08);
+  background: var(--bg-card);
+  border-right: 1px solid var(--border);
   position: fixed;
   top: 0;
   left: 0;
@@ -479,8 +475,8 @@ h1, h2, h3 {
 }
 
 .sidebar-nav-item.active {
-  background: rgba(99,102,241,0.1);
-  color: #a5b4fc;
+  background: rgba(108, 99, 255, 0.15);
+  color: var(--accent-light);
   border: 1px solid rgba(108, 99, 255, 0.2);
 }
 
@@ -1447,14 +1443,4 @@ h1, h2, h3 {
   
   /* Reset link colors */
   a { text-decoration: none !important; color: black !important; }
-}
-
-@keyframes gradientShift {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
 }
