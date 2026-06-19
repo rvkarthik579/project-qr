@@ -13,6 +13,7 @@ import {
   IconAlertCircle
 } from '@tabler/icons-react'
 import { QRCodeSVG } from 'qrcode.react'
+import JSZip from 'jszip'
 
 const STEPS = ['Upload', 'Select Files', 'Settings', 'Generate']
 const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
@@ -124,77 +125,66 @@ export default function UploadPage({ params }: { params: { id: string } }) {
         
         if (name.endsWith('.zip')) {
           try {
-            const formData = new FormData()
-            formData.append('file', file)
+            const zip = await JSZip.loadAsync(file)
+            const rootNodes: TreeNode[] = []
+            const folderMap = new Map<string, TreeNode>()
+            
+            // Extract all files into Blobs immediately to attach as File objects
+            const entries = Object.values(zip.files).filter(entry => !entry.dir)
+            
+            if (entries.length > 0) {
+              const extractionPromises = entries.map(async (entry) => {
+                const blob = await entry.async('blob')
+                // Create a File object from the Blob so it behaves exactly like a normal file
+                const extractedName = entry.name.split('/').pop() || 'file'
+                const extractedFile = new File([blob], extractedName, { type: blob.type })
+                
+                const parts = entry.name.split('/')
+                const fileName = parts[parts.length - 1]
+                if (!fileName) return
 
-            const response = await fetch('/api/extract-archive', {
-              method: 'POST',
-              body: formData
-            })
-
-            if (response.ok) {
-              const { files: extractedFiles } = await response.json()
-              
-              if (extractedFiles && extractedFiles.length > 0) {
-                const folderMap = new Map<string, TreeNode>()
-                const rootNodes: TreeNode[] = []
-
-                extractedFiles.forEach((ef: {name: string, path: string}) => {
-                  const parts = ef.path.split('/')
-                  const fileName = parts[parts.length - 1]
-                  if (!fileName) return
-
-                  if (parts.length === 1) {
-                    rootNodes.push({ 
-                      name: fileName, path: ef.path, 
-                      type: 'file', file 
-                    })
-                  } else {
-                    let parentList = rootNodes
-                    let currentPath = ''
-                    for (let i = 0; i < parts.length - 1; i++) {
-                      currentPath = i === 0 
-                        ? parts[i] 
-                        : currentPath + '/' + parts[i]
-                      let folder = folderMap.get(currentPath)
-                      if (!folder) {
-                        folder = { 
-                          name: parts[i], path: currentPath, 
-                          type: 'folder', children: [] 
-                        }
-                        folderMap.set(currentPath, folder)
-                        parentList.push(folder)
+                if (parts.length === 1) {
+                  rootNodes.push({ 
+                    name: fileName, path: entry.name, 
+                    type: 'file', file: extractedFile 
+                  })
+                } else {
+                  let parentList = rootNodes
+                  let currentPath = ''
+                  for (let i = 0; i < parts.length - 1; i++) {
+                    currentPath = i === 0 
+                      ? parts[i] 
+                      : currentPath + '/' + parts[i]
+                    let folder = folderMap.get(currentPath)
+                    if (!folder) {
+                      folder = { 
+                        name: parts[i], path: currentPath, 
+                        type: 'folder', children: [] 
                       }
-                      parentList = folder.children!
+                      folderMap.set(currentPath, folder)
+                      parentList.push(folder)
                     }
-                    parentList.push({ 
-                      name: fileName, path: ef.path, 
-                      type: 'file', file 
-                    })
+                    parentList = folder.children!
                   }
-                })
-
-                allNodes.push({ 
-                  name: file.name, path: file.name, 
-                  type: 'folder', children: rootNodes 
-                })
-              } else {
-                allNodes.push({ 
-                  name: file.name, path: file.name, 
-                  type: 'file', file 
-                })
-              }
-            } else {
+                  parentList.push({ 
+                    name: fileName, path: entry.name, 
+                    type: 'file', file: extractedFile 
+                  })
+                }
+              })
+              
+              await Promise.all(extractionPromises)
+              
               allNodes.push({ 
                 name: file.name, path: file.name, 
-                type: 'file', file 
+                type: 'folder', children: rootNodes 
               })
+            } else {
+              allNodes.push({ name: file.name, path: file.name, type: 'file', file })
             }
-          } catch {
-            allNodes.push({ 
-              name: file.name, path: file.name, 
-              type: 'file', file 
-            })
+          } catch (err) {
+            console.error('ZIP extraction error:', err)
+            allNodes.push({ name: file.name, path: file.name, type: 'file', file })
           }
         } else if (
           name.endsWith('.rar') || 
@@ -316,6 +306,12 @@ export default function UploadPage({ params }: { params: { id: string } }) {
       for (const { file, path } of filesToProcess) {
         setUploadProgress(Math.round((processed / filesToProcess.length) * 90))
 
+        let displayTitle = customTitles.get(path)?.trim() || ''
+        if (!displayTitle) {
+          // If no custom title, parse the path for nested files (e.g., Folder/Subfolder/file.pdf -> Folder / Subfolder / file.pdf)
+          displayTitle = path.split('/').join(' / ')
+        }
+
         const { path: storagePath, url, error: uploadErr } = await uploadFile(
           file, user.id, projectId, report.id
         )
@@ -325,7 +321,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
           .from('files')
           .insert({
             report_id: report.id,
-            file_name: file.name,
+            file_name: displayTitle || file.name,
             file_path: storagePath,
             file_type: file.type || 'application/octet-stream',
             file_size: file.size,
@@ -368,16 +364,10 @@ export default function UploadPage({ params }: { params: { id: string } }) {
 
         if (qrErr) throw new Error(qrErr.message)
 
-        let displayTitle = customTitles.get(path)?.trim() || ''
-        if (!displayTitle) {
-          // If no custom title, parse the path for nested files (e.g., Folder/Subfolder/file.pdf -> Folder / Subfolder / file.pdf)
-          displayTitle = path.split('/').join(' / ')
-        }
-
         generated.push({
           qrUniqueId,
           machineName: machine,
-          fileName: file.name,
+          fileName: displayTitle || file.name,
           displayTitle,
           status: reportStatus || 'pass',
           expiryDate,
