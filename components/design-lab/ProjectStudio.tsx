@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Upload, Search, Settings2, Plus } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 import { useCanvasEffect } from "@/components/design-lab/CanvasEffectContext";
 import FileDetailPanel from "@/components/design-lab/FileDetailPanel";
 import type { DesignLabProject, DesignLabFile } from "@/components/design-lab/types";
@@ -63,6 +64,7 @@ const MOCK_PROJECT_FILES: DesignLabFile[] = [
 ];
 
 export default function ProjectStudio({ project, onClose }: ProjectStudioProps) {
+  const router = useRouter();
   const { triggerRipple } = useCanvasEffect();
   const [activeTab, setActiveTab] = useState("files");
   const [selectedFile, setSelectedFile] = useState<DesignLabFile | null>(null);
@@ -291,7 +293,10 @@ export default function ProjectStudio({ project, onClose }: ProjectStudioProps) 
               </div>
 
               <button
-                onClick={() => triggerRipple("#2BBBAD")}
+                onClick={() => {
+                  triggerRipple("#2BBBAD");
+                  router.push(`/dashboard/projects/${project.id}/upload`);
+                }}
                 className="ml-2 flex items-center gap-2 rounded-full bg-[#111111] px-6 py-2 text-white shadow-lg transition-all hover:scale-105 active:scale-95"
               >
                 <Plus className="h-4 w-4" />
