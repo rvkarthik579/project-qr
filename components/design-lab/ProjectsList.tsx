@@ -138,12 +138,9 @@ export default function ProjectsList({
                     </div>
 
                     <motion.div layoutId={`project-content-${p.id}`}>
-                      <motion.h3
-                        layoutId={`project-title-${p.id}`}
-                        className="mb-3 font-[family-name:var(--font-instrument)] text-3xl text-[#1A1A1A] md:text-4xl"
-                      >
+                      <h4 className="font-[family-name:var(--font-instrument)] text-2xl text-[#1A1A1A] group-hover:text-black">
                         {p.name}
-                      </motion.h3>
+                      </h4>
 
                       <div className="mt-6 grid grid-cols-2 gap-4 border-t border-black/5 pt-6 md:grid-cols-4">
                         <div>

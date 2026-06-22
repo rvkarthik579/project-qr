@@ -5,7 +5,8 @@ import { useState, useEffect } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { AnimatePresence } from "framer-motion";
 import { Plus } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import Omniscope from "@/components/design-lab/Omniscope";
 import ProjectsList from "@/components/design-lab/ProjectsList";
 import ProjectStudio from "@/components/design-lab/ProjectStudio";
@@ -13,8 +14,9 @@ import Workbench from "@/components/design-lab/Workbench";
 import { useCanvasEffect } from "@/components/design-lab/CanvasEffectContext";
 import type { DesignLabProject } from "@/components/design-lab/types";
 
-export default function DashboardPage() {
+function DashboardContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isProjectsOpen, setIsProjectsOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [projects, setProjects] = useState<DesignLabProject[]>([]);
@@ -55,30 +57,25 @@ export default function DashboardPage() {
       });
       setProjects(mapped);
 
-      // Handle auto-open from URL
-      if (typeof window !== 'undefined') {
-        const search = new URLSearchParams(window.location.search);
-        const projectIdParam = search.get('project');
-        if (projectIdParam) {
-          const p = mapped.find((proj: DesignLabProject) => proj.id === projectIdParam);
-          if (p) {
-            setSelectedProject(p);
-            // Remove param from URL cleanly
-            const newUrl = window.location.pathname;
-            window.history.replaceState({}, '', newUrl);
-          }
+      // Handle auto-open from URL using searchParams
+      const projectIdParam = searchParams.get('project');
+      if (projectIdParam) {
+        const p = mapped.find((proj: DesignLabProject) => proj.id === projectIdParam);
+        if (p) {
+          setSelectedProject(p);
+          // Remove param from URL cleanly
+          router.replace('/dashboard');
         }
-        
-        const viewParam = search.get('view');
-        if (viewParam === 'projects') {
-          setIsProjectsOpen(true);
-          const newUrl = window.location.pathname;
-          window.history.replaceState({}, '', newUrl);
-        }
+      }
+      
+      const viewParam = searchParams.get('view');
+      if (viewParam === 'projects') {
+        setIsProjectsOpen(true);
+        router.replace('/dashboard');
       }
     }
     loadProjects();
-  }, []);
+  }, [searchParams, router]);
 
   useEffect(() => {
     const handleNav = (e: Event) => {
@@ -118,7 +115,7 @@ export default function DashboardPage() {
         )}
       </AnimatePresence>
 
-      <header className="relative z-10 mx-auto flex w-full max-w-4xl flex-col items-center justify-center pb-24 pt-48 text-center">
+      <header className="relative z-10 mx-auto flex w-full max-w-4xl flex-col items-center justify-center pb-24 pt-16 text-center">
         <h1 className="mb-6 font-[family-name:var(--font-instrument)] text-8xl text-[#1A1A1A] tracking-tight md:text-9xl">
           Project QR
         </h1>
@@ -169,5 +166,13 @@ export default function DashboardPage() {
         }} />
       </section>
     </>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Loading...</div>}>
+      <DashboardContent />
+    </Suspense>
   );
 }

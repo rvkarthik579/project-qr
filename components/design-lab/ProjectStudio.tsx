@@ -295,7 +295,6 @@ export default function ProjectStudio({ project, onClose }: ProjectStudioProps) 
 
           <motion.div layoutId={`project-content-${project.id}`} className="mb-16">
             <motion.h1
-              layoutId={`project-title-${project.id}`}
               className="mb-6 font-[family-name:var(--font-instrument)] text-6xl text-[#1A1A1A]"
             >
               {project.name}

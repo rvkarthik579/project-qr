@@ -16,7 +16,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import JSZip from 'jszip'
 import type { QRLayout } from '@/components/pdf/QRLabelPDF'
 
-const STEPS = ['Upload', 'Select Files', 'Settings', 'Generate']
+const STEPS = ['Upload', 'Select Files', 'QR Expiry', 'QR Settings', 'Generate']
 const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
 const ACCEPTED_TYPES = ['.pdf', '.doc', '.docx', '.zip', '.rar', '.7z', '.tar', '.gz', '.war', '.ear']
 
@@ -443,7 +443,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
 
   function canProceed() {
     if (currentStep === 0) return uploadedFiles.length > 0
-    if (currentStep === 2) return !requirePin || pin.length === 4
+    if (currentStep === 3) return !requirePin || pin.length === 4
     return true
   }
 
@@ -457,9 +457,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
   }
 
   function goPrevStep() {
-    if (currentStep === 2 && !treeNodes.some(n => n.type === 'folder')) {
-      setCurrentStep(0)
-    } else {
+    if (currentStep === 2 && !treeNodes.some(n => n.type === 'folder')) { setCurrentStep(0) } else if (currentStep === 3 && !treeNodes.some(n => n.type === 'folder')) { setCurrentStep(2) } else {
       setCurrentStep(s => s - 1)
     }
   }
@@ -478,7 +476,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
         Back to Project
       </Link>
 
-      <div className="mb-8 pt-6">
+      <div className="mb-8 pt-0">
         <h1 className="font-[family-name:var(--font-instrument)] text-5xl text-[#1A1A1A] mb-4">
           Upload Files
         </h1>
@@ -765,7 +763,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
           </div>
         )}
 
-        {/* STEP 3: Settings */}
+        {/* STEP 3: QR Expiry */}
         {currentStep === 2 && (
           <div>
             <div style={{marginBottom: 32}}>
@@ -818,11 +816,21 @@ export default function UploadPage({ params }: { params: { id: string } }) {
             </div>
 
             <div style={{
-              background: '#0d0f1a',
-              border: '1px solid rgba(255,255,255,0.07)',
-              borderRadius: 12, padding: 20
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: 12, padding: 20,
+              marginTop: 32
             }}>
-              <div style={{ marginBottom: 16 }}>
+            </div></div>)}
+            {/* STEP 4: QR Settings */}
+            {currentStep === 3 && (
+              <div>
+                <div style={{
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 12, padding: 20
+                }}>
+                  <div style={{ marginBottom: 16 }}>
                 <p style={{ fontSize: 15, fontWeight: 500, marginBottom: 4 }}>QR Layout</p>
                 <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Choose how many labels are placed on each A4 PDF page.</p>
               </div>
@@ -855,9 +863,10 @@ export default function UploadPage({ params }: { params: { id: string } }) {
             </div>
 
             <div style={{
-              background: '#0d0f1a',
-              border: '1px solid rgba(255,255,255,0.07)',
-              borderRadius: 12, padding: 20
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: 12, padding: 20,
+              marginTop: 20
             }}>
               <div style={{
                 display: 'flex', alignItems: 'center',
@@ -906,8 +915,8 @@ export default function UploadPage({ params }: { params: { id: string } }) {
           </div>
         )}
 
-        {/* STEP 4: Generate */}
-        {currentStep === 3 && (
+        {/* STEP 5: Generate */}
+        {currentStep === 4 && (
           <div className="animate-fade-up">
             {generatedQRs.length === 0 && !generating && !generateError ? (
               <div style={{textAlign: 'center', padding: '40px 0'}}>

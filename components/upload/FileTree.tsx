@@ -98,12 +98,25 @@ function TreeNodeItem({
   return (
     <div
       className={`file-tree-item ${isSelected ? 'selected' : ''}`}
-      style={{ paddingLeft: 8 + depth * 20, alignItems: 'center' }}
+      style={{ 
+        paddingLeft: 8 + depth * 20, alignItems: 'center', 
+        background: isSelected ? 'var(--bg-hover)' : 'transparent',
+        borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent'
+      }}
     >
       <div 
         style={{ display: 'flex', alignItems: 'center', flex: 1, cursor: 'pointer', gap: 8 }}
         onClick={() => onToggle(node.path, node.file)}
       >
+        <div style={{
+          width: 20, height: 20, borderRadius: 6,
+          border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+          background: isSelected ? 'var(--accent)' : 'transparent',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'all 100ms ease', flexShrink: 0
+        }}>
+          {isSelected && <IconCheck size={14} color="white" />}
+        </div>
         {icon}
         <span style={{ 
           color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)', 
@@ -148,12 +161,14 @@ function TreeNodeItem({
         </span>
         {isSelected && (
           <div style={{
-            width: 18, height: 18,
-            background: 'var(--accent)', borderRadius: 4,
+            width: 24, height: 24,
+            background: 'var(--bg-card)', borderRadius: 6,
+            border: '1px solid var(--accent)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0
+            flexShrink: 0,
+            boxShadow: '0 0 0 2px rgba(74,144,226,0.1)'
           }}>
-            <IconCheck size={11} color="white" />
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
           </div>
         )}
       </div>
@@ -165,9 +180,33 @@ export default function FileTree({ nodes, selectedPaths, customTitles, onToggle,
   if (nodes.length === 0) return null
 
   return (
-    <div style={{
-      background: 'var(--bg-hover)',
-      border: '1px solid var(--border)',
+    <div>
+      <div style={{ 
+        background: 'rgba(74,144,226,0.04)', border: '1px solid rgba(74,144,226,0.15)',
+        borderRadius: 12, padding: '16px 20px', marginBottom: 20
+      }}>
+        <h3 style={{ fontFamily: 'Geist, sans-serif', fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>
+          STEP 2 — SELECT FILES
+        </h3>
+        <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 12 }}>
+          Select the files that should receive individual QR codes.
+        </p>
+        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-muted)' }}>
+            <div style={{ color: 'var(--success)' }}><IconCheck size={16} /></div> Click a file to include it
+          </li>
+          <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-muted)' }}>
+            <div style={{ color: 'var(--success)' }}><IconCheck size={16} /></div> Blue check means selected
+          </li>
+          <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-muted)' }}>
+            <div style={{ color: 'var(--success)' }}><IconCheck size={16} /></div> One selected file = one QR code
+          </li>
+        </ul>
+      </div>
+
+      <div style={{
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border)',
       borderRadius: 10,
       overflow: 'hidden',
       maxHeight: 400,
@@ -198,6 +237,7 @@ export default function FileTree({ nodes, selectedPaths, customTitles, onToggle,
           />
         ))}
       </div>
+    </div>
     </div>
   )
 }

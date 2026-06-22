@@ -76,7 +76,7 @@ export default function DashboardClientLayout({
             goHome={goHome}
           />
 
-          <main className="relative z-10 mx-auto w-full max-w-6xl">
+          <main className="relative z-10 mx-auto w-full max-w-6xl pt-32">
             {children}
           </main>
         </div>

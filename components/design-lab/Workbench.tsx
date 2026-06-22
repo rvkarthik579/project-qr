@@ -85,7 +85,6 @@ export default function Workbench({ projects, onProjectOpen }: WorkbenchProps) {
                   </div>
 
                   <motion.h4
-                    layoutId={`project-title-${project.id}`}
                     className="mb-3 font-[family-name:var(--font-instrument)] text-2xl leading-tight text-[#1A1A1A]"
                   >
                     {project.name}
