@@ -40,6 +40,31 @@ export default function Step5QRSelection() {
       </div>
 
       <div className="flex flex-col gap-1.5 px-8 pb-6">
+        <div className="mb-4 flex items-center justify-between rounded-xl bg-black/[0.02] px-4 py-3 border border-black/5">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => {
+                validFiles.forEach(f => { if (!f.selectedForQR) toggleQRSelection(f.id); });
+              }}
+              className="font-sans text-[11px] font-bold uppercase tracking-widest text-[#1A1A1A] transition-colors hover:text-[#2563EB]"
+            >
+              Select All
+            </button>
+            <div className="h-3 w-[1px] bg-black/10"></div>
+            <button
+              onClick={() => {
+                validFiles.forEach(f => { if (f.selectedForQR) toggleQRSelection(f.id); });
+              }}
+              className="font-sans text-[11px] font-bold uppercase tracking-widest text-black/40 transition-colors hover:text-[#EF4444]"
+            >
+              Clear All
+            </button>
+          </div>
+          <span className="font-mono text-xs font-semibold text-black/40">
+            {selectedCount} / {validFiles.length} Selected
+          </span>
+        </div>
+
         {validFiles.map((file, i) => {
           const isSelected = file.selectedForQR;
           return (
@@ -84,15 +109,7 @@ export default function Step5QRSelection() {
         })}
       </div>
 
-      <div className="flex items-center justify-between border-t border-black/[0.04] bg-black/[0.015] px-8 py-5">
-        <button
-          onClick={() => {
-            validFiles.forEach(f => { if (!f.selectedForQR) toggleQRSelection(f.id); });
-          }}
-          className="font-sans text-sm font-medium text-black/40 transition-colors hover:text-black"
-        >
-          Select All
-        </button>
+      <div className="flex justify-end border-t border-black/[0.04] bg-black/[0.015] px-8 py-5">
         <motion.button
           onClick={nextStep}
           disabled={selectedCount === 0}

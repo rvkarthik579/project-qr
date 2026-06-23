@@ -99,15 +99,17 @@ function TreeNodeItem({
     <div
       className={`file-tree-item ${isSelected ? 'selected' : ''}`}
       style={{ 
-        paddingLeft: 8 + depth * 20, alignItems: 'center', 
+        paddingLeft: 8 + depth * 20, 
         background: isSelected ? 'var(--bg-hover)' : 'transparent',
-        borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent'
+        borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent',
+        display: 'flex', flexDirection: 'column', alignItems: 'stretch'
       }}
     >
-      <div 
-        style={{ display: 'flex', alignItems: 'center', flex: 1, cursor: 'pointer', gap: 8 }}
-        onClick={() => onToggle(node.path, node.file)}
-      >
+      <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+        <div 
+          style={{ display: 'flex', alignItems: 'center', flex: 1, cursor: 'pointer', gap: 8 }}
+          onClick={() => onToggle(node.path, node.file)}
+        >
         <div style={{
           width: 20, height: 20, borderRadius: 6,
           border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
@@ -128,25 +130,32 @@ function TreeNodeItem({
         </span>
       </div>
 
+      </div>
+
       {isSelected && (
-        <input 
-          type="text"
-          placeholder="Custom Title (Optional)"
-          value={customTitles.get(node.path) || ''}
-          onChange={(e) => onTitleChange(node.path, e.target.value)}
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            flex: 1,
-            background: 'var(--bg-hover)',
-            border: '1px solid var(--border)',
-            color: 'var(--text-primary)',
-            padding: '4px 8px',
-            fontSize: '0.8rem',
-            borderRadius: 4,
-            marginLeft: 8,
-            marginRight: 8
-          }}
-        />
+        <div style={{ paddingLeft: 36, marginTop: 8, paddingRight: 8, marginBottom: 4 }}>
+          <label style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, fontFamily: 'JetBrains Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Custom QR Title
+          </label>
+          <input 
+            type="text"
+            placeholder="e.g. Maintenance Manual"
+            value={customTitles.get(node.path) || ''}
+            onChange={(e) => onTitleChange(node.path, e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              background: 'var(--bg-card)',
+              border: '1px solid rgba(108,99,255,0.4)',
+              color: 'var(--text-primary)',
+              padding: '10px 12px',
+              fontSize: '0.85rem',
+              borderRadius: 6,
+              outline: 'none',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+            }}
+          />
+        </div>
       )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => onToggle(node.path, node.file)}>

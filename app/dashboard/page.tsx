@@ -33,8 +33,8 @@ function DashboardContent() {
       const { data: projectsData, error } = await supabase
         .from('projects')
         .select(`
-          id, machine_name, created_at,
-          reports(id, files(id))
+          id, machine_name, location, created_at,
+          reports(id, files(id, file_name, qr_codes(id)))
         `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
@@ -44,14 +44,54 @@ function DashboardContent() {
         return;
       }
 
+      const qrIds: string[] = [];
+      projectsData.forEach(p => {
+        p.reports?.forEach((r: any) => {
+          r.files?.forEach((f: any) => {
+            f.qr_codes?.forEach((q: any) => {
+              if (q.id) qrIds.push(q.id);
+            });
+          });
+        });
+      });
+
+      const scanCounts = new Map<string, number>();
+      if (qrIds.length > 0) {
+        const { data: logs } = await supabase
+          .from('scan_logs')
+          .select('qr_id')
+          .in('qr_id', qrIds);
+        
+        logs?.forEach(log => {
+          scanCounts.set(log.qr_id, (scanCounts.get(log.qr_id) || 0) + 1);
+        });
+      }
+
       const mapped = projectsData.map((p: any) => {
-        const filesCount = p.reports?.reduce((sum: number, r: any) => sum + (r.files?.length || 0), 0) || 0;
+        let filesCount = 0;
+        let projectScans = 0;
+        const fileNames: string[] = [];
+
+        p.reports?.forEach((r: any) => {
+          filesCount += (r.files?.length || 0);
+          r.files?.forEach((f: any) => {
+            if (f.file_name) fileNames.push(f.file_name);
+            f.qr_codes?.forEach((q: any) => {
+              projectScans += (scanCounts.get(q.id) || 0);
+            });
+          });
+        });
+
         return {
           id: p.id,
           name: p.machine_name,
+          location: p.location,
+          fileNames,
           createdDate: new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
+          rawCreatedAt: p.created_at,
           filesCount,
           qrCount: filesCount, // 1 QR per file
+          scanCount: projectScans,
           lastActivity: new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
         };
       });
@@ -148,7 +188,15 @@ function DashboardContent() {
           </span>
         </button>
 
-        {/* Omniscope search temporarily hidden for Phase 1 release */}
+        {/* Omniscope functional search */}
+        <div className="w-full relative z-50">
+          <Omniscope
+            projects={projects}
+            onSelectProject={(project) => {
+              setSelectedProject(project);
+            }}
+          />
+        </div>
       </header>
 
       <section id="recent-projects" className="pb-40 pt-10 scroll-mt-24">
@@ -160,7 +208,7 @@ function DashboardContent() {
             Desk
           </span>
         </div>
-        <Workbench projects={projects.slice(0, 3)} onProjectOpen={(id) => {
+        <Workbench projects={projects.slice(0, 6)} onProjectOpen={(id) => {
           const proj = projects.find(p => p.id === id);
           if (proj) setSelectedProject(proj);
         }} />

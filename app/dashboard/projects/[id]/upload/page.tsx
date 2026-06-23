@@ -53,7 +53,10 @@ export default function UploadPage({ params }: { params: { id: string } }) {
   const [totalFiles, setTotalFiles] = useState(0)
   
   // Step 3: Settings
-  const [expiryPreset, setExpiryPreset] = useState<'30d' | '90d' | '1y' | 'never'>('90d')
+  const [expiryPreset, setExpiryPreset] = useState<'30d' | '90d' | '1y' | 'never' | 'custom'>('custom')
+  const [customExpiryDate, setCustomExpiryDate] = useState<string>(
+    getExpiryFromPreset('90d') || new Date().toISOString()
+  )
   const [expiryDate, setExpiryDate] = useState<string | null>(getExpiryFromPreset('90d'))
   const [requirePin, setRequirePin] = useState(false)
   const [pin, setPin] = useState('')
@@ -68,8 +71,14 @@ export default function UploadPage({ params }: { params: { id: string } }) {
   const [exportingPDF, setExportingPDF] = useState(false)
 
   useEffect(() => {
-    setExpiryDate(getExpiryFromPreset(expiryPreset))
-  }, [expiryPreset])
+    if (expiryPreset === 'custom') {
+      setExpiryDate(customExpiryDate || null)
+    } else {
+      const newDate = getExpiryFromPreset(expiryPreset)
+      setExpiryDate(newDate)
+      if (newDate) setCustomExpiryDate(newDate)
+    }
+  }, [expiryPreset, customExpiryDate])
 
   function svgToPngDataUrl(svg: SVGSVGElement): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -96,7 +105,9 @@ export default function UploadPage({ params }: { params: { id: string } }) {
     })
   }
 
-  async function downloadBatchPDF() {
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false)
+
+  async function downloadBatchPDF(layout: QRLayout) {
     setExportingPDF(true)
     try {
       const labels = await Promise.all(generatedQRs.map(async qr => {
@@ -108,11 +119,11 @@ export default function UploadPage({ params }: { params: { id: string } }) {
         import('@react-pdf/renderer'),
         import('@/components/pdf/QRLabelPDF'),
       ])
-      const blob = await pdf(<QRLabelPDF labels={labels} layout={qrLayout} />).toBlob()
+      const blob = await pdf(<QRLabelPDF labels={labels} layout={layout} />).toBlob()
       const url = URL.createObjectURL(blob)
       const anchor = document.createElement('a')
       anchor.href = url
-      anchor.download = `${projectName || 'project'}-QR-labels-${qrLayout}-up.pdf`
+      anchor.download = `${projectName || 'project'}-QR-labels-${layout}-up.pdf`
       anchor.click()
       URL.revokeObjectURL(url)
     } catch (error) {
@@ -170,9 +181,9 @@ export default function UploadPage({ params }: { params: { id: string } }) {
       })
 
       if (validFiles.length === 0) return
-      setUploadedFiles(validFiles)
+      setUploadedFiles(prev => [...prev, ...validFiles])
 
-      const allNodes: TreeNode[] = []
+      const allNodes: TreeNode[] = [...treeNodes]
 
       for (const file of validFiles) {
         const name = file.name.toLowerCase()
@@ -267,12 +278,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
         }
       }
 
-      setTreeNodes(allNodes)
-      
-      // Auto advance logic
-      if (!allNodes.some(n => n.type === 'folder')) {
-        setCurrentStep(2) // Jump straight to Settings
-      }
+      setTreeNodes(prev => [...prev, ...allNodes])
     } finally {
       setProcessingFiles(false)
     }
@@ -443,23 +449,17 @@ export default function UploadPage({ params }: { params: { id: string } }) {
 
   function canProceed() {
     if (currentStep === 0) return uploadedFiles.length > 0
+    if (currentStep === 2 && expiryPreset === 'custom' && !customExpiryDate) return false
     if (currentStep === 3) return !requirePin || pin.length === 4
     return true
   }
 
   function goNextStep() {
-    if (currentStep === 0) {
-      if (treeNodes.some(n => n.type === 'folder')) setCurrentStep(1)
-      else setCurrentStep(2)
-    } else {
-      setCurrentStep(s => s + 1)
-    }
+    setCurrentStep(s => s + 1)
   }
 
   function goPrevStep() {
-    if (currentStep === 2 && !treeNodes.some(n => n.type === 'folder')) { setCurrentStep(0) } else if (currentStep === 3 && !treeNodes.some(n => n.type === 'folder')) { setCurrentStep(2) } else {
-      setCurrentStep(s => s - 1)
-    }
+    setCurrentStep(s => s - 1)
   }
 
   return (
@@ -490,7 +490,8 @@ export default function UploadPage({ params }: { params: { id: string } }) {
           <div key={i} style={{ display: 'flex', alignItems: 'center' }}>
             <div
               className={`step ${i === currentStep ? 'active' : ''} ${i < currentStep ? 'completed' : ''}`}
-              style={{ cursor: 'default' }}
+              style={{ cursor: i <= currentStep ? 'pointer' : 'default' }}
+              onClick={() => { if (i <= currentStep) setCurrentStep(i) }}
             >
               <div className="step-number">
                 {i < currentStep ? <IconCheck size={12} /> : i + 1}
@@ -510,10 +511,10 @@ export default function UploadPage({ params }: { params: { id: string } }) {
         {currentStep === 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             <div>
-              <h2 className="font-geist" style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: 8 }}>
+              <h2 className="font-geist" style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: 8, color: '#1A1A1A' }}>
                 Upload Files
               </h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+              <p style={{ color: '#1A1A1A', fontSize: '0.9rem', fontWeight: 500 }}>
                 Drag & drop ZIP, RAR, 7Z, TAR, PDF, or DOCX files. Max 50MB. Archives will be expanded automatically.
               </p>
             </div>
@@ -598,32 +599,25 @@ export default function UploadPage({ params }: { params: { id: string } }) {
 
             {uploadedFiles.length > 0 && !processingFiles && (
               <div className="animate-slide-down">
-                <div style={{ marginTop: 24 }}>
-                  <div style={{ 
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
-                    marginBottom: 16 
-                  }}>
-                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                      {selectedPaths.size} files selected
-                    </span>
-                    <button
-                      onClick={deselectAll}
-                      style={{
-                        background: 'none', border: 'none', color: 'var(--text-muted)',
-                        fontSize: '0.875rem', cursor: 'pointer', fontFamily: 'JetBrains Mono, monospace',
-                        textDecoration: 'underline'
-                      }}
-                    >
-                      Clear All
-                    </button>
+                <div style={{
+                  padding: '16px 20px',
+                  background: 'rgba(61,255,160,0.06)',
+                  border: '1px solid rgba(61,255,160,0.2)',
+                  borderRadius: 8,
+                  marginTop: 24,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  <div>
+                    <p style={{ color: '#2E8B57', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
+                      {uploadedFiles.length} file{uploadedFiles.length === 1 ? '' : 's'} uploaded successfully
+                    </p>
+                    <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>
+                      You can add more files or click Continue to select files for QR generation.
+                    </p>
                   </div>
-                  <FileTree 
-                    nodes={treeNodes}
-                    selectedPaths={selectedPaths}
-                    customTitles={customTitles}
-                    onToggle={handleToggleFile}
-                    onTitleChange={handleTitleChange}
-                  />
+                  <IconCheck color="#3dffa0" size={24} />
                 </div>
               </div>
             )}
@@ -631,7 +625,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
             <div style={{marginTop: 24}}>
               <p style={{
                 fontFamily: 'JetBrains Mono, monospace',
-                fontSize: 11, color: 'var(--text-muted)',
+                fontSize: 11, color: '#1A1A1A', fontWeight: 600,
                 letterSpacing: '0.08em', textTransform: 'uppercase',
                 marginBottom: 12
               }}>
@@ -701,9 +695,9 @@ export default function UploadPage({ params }: { params: { id: string } }) {
             <div style={{marginBottom: 24}}>
               <h2 style={{
                 fontFamily: 'Geist, sans-serif',
-                fontSize: 20, fontWeight: 700, marginBottom: 8
+                fontSize: 20, fontWeight: 700, marginBottom: 8, color: '#1A1A1A'
               }}>Select Files for QR Codes</h2>
-              <p style={{color: 'var(--text-secondary)', fontSize: 14}}>
+              <p style={{color: '#1A1A1A', fontSize: 14, fontWeight: 500}}>
                 Pick which files get their own QR code. 
                 Each selected file = one scannable QR.
               </p>
@@ -721,19 +715,21 @@ export default function UploadPage({ params }: { params: { id: string } }) {
               </span>
               <div style={{display: 'flex', gap: 8}}>
                 <button onClick={selectAll} style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
                   background: 'rgba(108,99,255,0.1)',
                   border: '1px solid rgba(108,99,255,0.2)',
                   color: 'var(--accent-light)', padding: '6px 12px',
                   borderRadius: 6, fontSize: 12, cursor: 'pointer',
                   fontFamily: 'Inter, sans-serif'
-                }}>Select All</button>
+                }}>✓ Select All</button>
                 <button onClick={deselectAll} style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
                   background: 'transparent',
                   border: '1px solid rgba(255,255,255,0.07)',
                   color: 'var(--text-muted)', padding: '6px 12px',
                   borderRadius: 6, fontSize: 12, cursor: 'pointer',
                   fontFamily: 'Inter, sans-serif'
-                }}>Clear</button>
+                }}>✕ Clear All</button>
               </div>
             </div>
 
@@ -745,21 +741,6 @@ export default function UploadPage({ params }: { params: { id: string } }) {
               onTitleChange={handleTitleChange}
             />
 
-            <button
-              onClick={() => setCurrentStep(2)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-muted)',
-                fontSize: 13,
-                cursor: 'pointer',
-                fontFamily: 'Inter, sans-serif',
-                marginTop: 16,
-                textDecoration: 'underline'
-              }}
-            >
-              Skip — upload all files without selecting
-            </button>
           </div>
         )}
 
@@ -769,7 +750,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
             <div style={{marginBottom: 32}}>
               <p style={{
                 fontFamily: 'JetBrains Mono, monospace',
-                fontSize: 11, color: 'var(--text-muted)',
+                fontSize: 11, color: '#1A1A1A', fontWeight: 600,
                 letterSpacing: '0.08em', textTransform: 'uppercase',
                 marginBottom: 16
               }}>QR Code Expiry</p>
@@ -780,7 +761,8 @@ export default function UploadPage({ params }: { params: { id: string } }) {
                     {label: '30 Days', value: '30d'},
                     {label: '90 Days', value: '90d'},
                     {label: '1 Year', value: '1y'},
-                    {label: 'Never', value: 'never'}
+                    {label: 'Never', value: 'never'},
+                    {label: 'Custom Date', value: 'custom'}
                   ] as const
                 ).map(opt => (
                   <button
@@ -805,32 +787,89 @@ export default function UploadPage({ params }: { params: { id: string } }) {
                 ))}
               </div>
 
+              <div style={{ marginTop: 16, marginBottom: 16, display: 'flex', gap: 16 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 13, fontWeight: 600, color: '#1A1A1A' }}>
+                    📅 Date
+                  </label>
+                  <input
+                    type="date"
+                    value={customExpiryDate ? customExpiryDate.split('T')[0] : ''}
+                    onChange={e => {
+                      const date = e.target.value;
+                      const time = customExpiryDate ? (customExpiryDate.split('T')[1] || '23:59') : '23:59';
+                      if (date) {
+                        setCustomExpiryDate(`${date}T${time}`);
+                        setExpiryPreset('custom');
+                      }
+                    }}
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        borderRadius: 8,
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border)',
+                        color: 'var(--text-primary)',
+                        fontFamily: 'Inter, sans-serif'
+                      }}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 13, fontWeight: 600, color: '#1A1A1A' }}>
+                      🕒 Time
+                    </label>
+                    <input
+                      type="time"
+                      value={customExpiryDate ? (customExpiryDate.split('T')[1]?.substring(0, 5) || '23:59') : '23:59'}
+                      onChange={e => {
+                        const time = e.target.value;
+                        const date = customExpiryDate ? customExpiryDate.split('T')[0] : new Date().toISOString().split('T')[0];
+                        if (time) {
+                          setCustomExpiryDate(`${date}T${time}`);
+                          setExpiryPreset('custom');
+                        }
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        borderRadius: 8,
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border)',
+                        color: 'var(--text-primary)',
+                        fontFamily: 'Inter, sans-serif'
+                      }}
+                    />
+                  </div>
+                </div>
+
               {expiryDate && (
                 <p style={{
                   fontFamily: 'JetBrains Mono, monospace',
-                  fontSize: 12, color: 'var(--text-muted)'
+                  fontSize: 12, color: '#1A1A1A', fontWeight: 600
                 }}>
-                  This QR will stop working on {new Date(expiryDate).toDateString()}
+                  This QR will expire on {new Date(expiryDate).toLocaleDateString([], { dateStyle: 'long' })} at {new Date(expiryDate).toLocaleTimeString([], { timeStyle: 'short' })}
                 </p>
               )}
             </div>
 
+          </div>
+        )}
+
+        {/* STEP 4: QR Settings */}
+        {currentStep === 3 && (
+          <div>
             <div style={{
               background: 'var(--bg-card)',
               border: '1px solid var(--border)',
-              borderRadius: 12, padding: 20,
-              marginTop: 32
+              borderRadius: 12, padding: 24
             }}>
-            </div></div>)}
-            {/* STEP 4: QR Settings */}
-            {currentStep === 3 && (
-              <div>
-                <div style={{
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 12, padding: 20
-                }}>
-                  <div style={{ marginBottom: 16 }}>
+              <p style={{
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600,
+                letterSpacing: '0.08em', textTransform: 'uppercase',
+                marginBottom: 16
+              }}>Security Settings</p>
+              <div style={{ marginBottom: 16 }}>
                 <p style={{ fontSize: 15, fontWeight: 500, marginBottom: 4 }}>QR Layout</p>
                 <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Choose how many labels are placed on each A4 PDF page.</p>
               </div>
@@ -1000,15 +1039,45 @@ export default function UploadPage({ params }: { params: { id: string } }) {
                     Your files are safely uploaded and ready to scan.
                   </p>
                   
-                  <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <div style={{ position: 'relative', display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
                     <button
                       className="btn btn-primary"
-                      onClick={downloadBatchPDF}
+                      onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
                       disabled={exportingPDF}
                     >
                       <IconDownload size={16} />
-                      {exportingPDF ? 'Preparing PDF...' : `Download PDF · ${qrLayout} per page`}
+                      {exportingPDF ? 'Preparing PDF...' : 'Download PDF Labels'}
                     </button>
+                    {isExportMenuOpen && (
+                      <div style={{
+                        position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+                        marginTop: 8, background: 'white', border: '1px solid var(--border)',
+                        borderRadius: 12, padding: 8, boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
+                        zIndex: 50, display: 'flex', flexDirection: 'column', gap: 4, minWidth: 200
+                      }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 8px', marginBottom: 4 }}>
+                          Select Layout
+                        </div>
+                        {[1, 2, 4, 6, 9].map((layoutNum) => (
+                          <button
+                            key={layoutNum}
+                            onClick={() => {
+                              setIsExportMenuOpen(false);
+                              downloadBatchPDF(layoutNum as QRLayout);
+                            }}
+                            style={{
+                              background: 'transparent', border: 'none', padding: '8px 12px',
+                              textAlign: 'left', fontSize: 14, borderRadius: 6, cursor: 'pointer',
+                              color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif'
+                            }}
+                            onMouseOver={e => e.currentTarget.style.background = 'rgba(0,0,0,0.05)'}
+                            onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                          >
+                            {layoutNum} per page
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 

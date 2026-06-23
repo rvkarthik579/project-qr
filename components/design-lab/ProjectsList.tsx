@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Search, Filter, Folder, Edit2, Trash2, Clock } from "lucide-react";
 import type { DesignLabProject } from "@/components/design-lab/types";
 import { useCanvasEffect } from "@/components/design-lab/CanvasEffectContext";
+import { getSupabaseBrowserClient } from "@/lib/supabase";
 
 interface ProjectsListProps {
   isOpen: boolean;
@@ -13,14 +14,61 @@ interface ProjectsListProps {
   onSelectProject: (project: DesignLabProject) => void;
 }
 
-export default function ProjectsList({
+const ProjectsList = React.memo(function ProjectsList({
   isOpen,
   onClose,
   projects,
   onSelectProject,
 }: ProjectsListProps) {
   const [filter, setFilter] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const { triggerRipple } = useCanvasEffect();
+
+  const filteredProjects = projects.filter((p) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    const matchName = p.name?.toLowerCase().includes(query);
+    const matchLocation = p.location?.toLowerCase().includes(query);
+    const matchFiles = p.fileNames?.some((fn) => fn.toLowerCase().includes(query));
+    return matchName || matchLocation || matchFiles;
+  });
+
+  const sortedProjects = [...filteredProjects].sort((a, b) => {
+    switch (filter) {
+      case "Newest":
+        return new Date(b.rawCreatedAt || 0).getTime() - new Date(a.rawCreatedAt || 0).getTime();
+      case "Oldest":
+        return new Date(a.rawCreatedAt || 0).getTime() - new Date(b.rawCreatedAt || 0).getTime();
+      case "Most Scanned":
+        return (b.scanCount || 0) - (a.scanCount || 0);
+      case "Recent":
+      case "All":
+      default:
+        // Recent relies on last activity (currently created_at for phase 1, but we use it as recent)
+        // Or if 'All', maintain default sort
+        return 0; // The default array from parent is already sorted by newest, so we'll just rely on `rawCreatedAt` or let it be
+    }
+  });
+
+  // Explicitly for Recent
+  if (filter === "Recent") {
+    sortedProjects.sort((a, b) => new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime());
+  }
+
+  const handleDeleteProject = async (projectId: string) => {
+    if (!confirm("Are you sure you want to delete this project?")) return;
+    setIsDeleting(projectId);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      await supabase.from("projects").delete().eq("id", projectId);
+      window.location.reload();
+    } catch (err) {
+      console.error("Failed to delete project:", err);
+      alert("Failed to delete project");
+      setIsDeleting(null);
+    }
+  };
 
   const paperStyle = {
     boxShadow:
@@ -51,16 +99,9 @@ export default function ProjectsList({
               </button>
             </div>
 
-            <div className="mb-12 flex items-center gap-4">
-              <div className="flex flex-1 items-center gap-3 rounded-full border border-black/10 bg-white px-6 py-4 shadow-sm">
-                <Search className="h-5 w-5 text-black/40" />
-                <input
-                  type="text"
-                  placeholder="Search projects..."
-                  className="w-full bg-transparent font-mono text-sm outline-none placeholder:text-black/30"
-                />
-              </div>
-              <div className="flex gap-2">
+            <div className="mb-12 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+              {/* Filter controls without search input (Omniscope handles search) */}
+              <div className="flex gap-2 flex-wrap">
                 {["All", "Recent", "Most Scanned", "Newest", "Oldest"].map((f) => (
                   <button
                     key={f}
@@ -75,16 +116,28 @@ export default function ProjectsList({
                   </button>
                 ))}
               </div>
-              <button className="flex items-center gap-2 rounded-full border border-black/10 bg-white px-6 py-3 transition-colors hover:bg-black/5">
-                <Filter className="h-4 w-4 text-black/60" />
-                <span className="font-mono text-[11px] font-bold uppercase tracking-widest text-black/60">
-                  More
-                </span>
-              </button>
+              <div className="flex items-center gap-4 w-full md:w-auto">
+                <div className="relative flex-1 md:w-64">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-black/40" />
+                  <input
+                    type="text"
+                    placeholder="Search projects, locations, files..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full rounded-full border border-black/10 bg-white py-3 pl-10 pr-4 font-sans text-sm text-black placeholder:text-black/40 outline-none transition-colors focus:border-black/30"
+                  />
+                </div>
+                <button className="flex items-center gap-2 rounded-full border border-black/10 bg-white px-6 py-3 transition-colors hover:bg-black/5 shrink-0">
+                  <Filter className="h-4 w-4 text-black/60" />
+                  <span className="font-mono text-[11px] font-bold uppercase tracking-widest text-black/60">
+                    More
+                  </span>
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
-              {projects.map((p, i) => {
+            <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-3">
+              {sortedProjects.map((p, i) => {
                 const rotation = i % 2 === 0 ? 1.5 : -1.5;
                 const yOffset = i % 3 === 0 ? 4 : -2;
 
@@ -126,10 +179,12 @@ export default function ProjectsList({
                           <Edit2 className="h-4 w-4 text-black/50" />
                         </button>
                         <button
-                          className="rounded-full bg-white p-3 text-red-500/70 shadow-md transition-transform hover:scale-110 hover:text-red-600 active:scale-95"
+                          className="rounded-full bg-white p-3 text-red-500/70 shadow-md transition-transform hover:scale-110 hover:text-red-600 active:scale-95 disabled:opacity-50"
+                          disabled={isDeleting === p.id}
                           onClick={(e) => {
                             e.stopPropagation();
                             triggerRipple("#FF6B6B");
+                            handleDeleteProject(p.id);
                           }}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -182,4 +237,6 @@ export default function ProjectsList({
       )}
     </AnimatePresence>
   );
-}
+});
+
+export default ProjectsList;

@@ -93,7 +93,7 @@ export function QRLabelPDF({ labels, layout }: QRLabelPDFProps) {
   const config = layoutConfig[layout]
   const gap = 8
   const usableWidth = 547
-  const usableHeight = 794
+  const usableHeight = 790
   const labelWidth = (usableWidth - gap * (config.columns - 1)) / config.columns
   const labelHeight = (usableHeight - gap * (config.rows - 1)) / config.rows
   const pages = chunkLabels(labels, layout)

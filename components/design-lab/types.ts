@@ -26,4 +26,8 @@ export interface DesignLabProject {
   filesCount: number;
   qrCount: number;
   lastActivity: string;
+  scanCount?: number;
+  rawCreatedAt?: string;
+  location?: string;
+  fileNames?: string[];
 }

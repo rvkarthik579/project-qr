@@ -25,6 +25,26 @@ export default function FileDetailPanel({ file, onClose }: FileDetailPanelProps)
   const { triggerRipple } = useCanvasEffect();
   const maxTrend = Math.max(...file.scanTrend, 1);
   const [isDownloadingFile, setIsDownloadingFile] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this file and its QR codes?')) return;
+    setIsDeleting(true);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      if (file.filePath) {
+        await supabase.storage.from('project_files').remove([file.filePath]);
+      }
+      const { error } = await supabase.from('files').delete().eq('id', file.id);
+      if (error) throw error;
+      onClose();
+      window.location.reload();
+    } catch (err) {
+      console.error('Failed to delete', err);
+      alert('Failed to delete file');
+      setIsDeleting(false);
+    }
+  };
 
   const downloadQR = () => {
     triggerRipple("#4A90E2");
@@ -196,12 +216,13 @@ export default function FileDetailPanel({ file, onClose }: FileDetailPanelProps)
                 </span>
               </button>
               <button
-                onClick={() => triggerRipple("#FF6B6B")}
-                className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 py-3.5 text-red-600 transition-colors hover:bg-red-100"
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 py-3.5 text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50"
               >
-                <Trash2 className="h-4 w-4" />
+                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                 <span className="font-mono text-[11px] font-medium uppercase tracking-widest">
-                  Delete
+                  {isDeleting ? "Deleting..." : "Delete"}
                 </span>
               </button>
             </div>

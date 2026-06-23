@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Folder } from "lucide-react";
 import { useCanvasEffect } from "@/components/design-lab/CanvasEffectContext";
@@ -11,7 +11,7 @@ interface WorkbenchProps {
   onProjectOpen: (id: string) => void;
 }
 
-export default function Workbench({ projects, onProjectOpen }: WorkbenchProps) {
+const Workbench = React.memo(function Workbench({ projects, onProjectOpen }: WorkbenchProps) {
   const deskRef = useRef<HTMLDivElement>(null);
   const [draggedProject, setDraggedProject] = useState<string | null>(null);
   const { triggerRipple } = useCanvasEffect();
@@ -31,9 +31,14 @@ export default function Workbench({ projects, onProjectOpen }: WorkbenchProps) {
           className="relative flex min-h-[400px] flex-wrap items-start justify-center gap-8 py-12"
         >
           {projects.map((project, i) => {
-            const rotation = i === 0 ? -2 : i === 1 ? 3 : -1;
-            const xOffset = i === 0 ? -8 : i === 1 ? 12 : 0;
-            const yOffset = i === 0 ? 6 : i === 1 ? -4 : 8;
+            // Generalize offsets and rotation for up to 6 items
+            const rotation = (i % 2 === 0 ? -1 : 1) * ((i % 3) + 1);
+            const xOffset = i % 2 === 0 ? -4 * (i % 3) : 6 * (i % 3);
+            const yOffset = i % 2 === 0 ? 6 : -4;
+            
+            let displayClass = "flex";
+            if (i >= 4) displayClass = "max-lg:hidden flex";
+            else if (i >= 2) displayClass = "max-md:hidden flex";
 
             return (
               <motion.div
@@ -69,12 +74,12 @@ export default function Workbench({ projects, onProjectOpen }: WorkbenchProps) {
                   triggerRipple("#4A90E2");
                   onProjectOpen(project.id);
                 }}
-                className="group relative flex h-72 w-64 cursor-grab flex-col bg-[#FFFFFF] p-6 transition-shadow hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.1)]"
+                className={`group relative h-72 w-64 cursor-grab flex-col bg-[#FFFFFF] p-6 transition-shadow hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.1)] ${displayClass}`}
                 style={paperStyle}
               >
                 <div className="absolute right-0 top-0 h-8 w-8 bg-gradient-to-bl from-black/5 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
 
-                <motion.div layoutId={`project-content-${project.id}`} className="flex h-full flex-col">
+                <motion.div layoutId={`project-content-${project.id}`} className="flex h-full flex-col w-full">
                   <div className="mb-4 flex items-start justify-between border-b border-black/5 pb-3">
                     <div className="rounded-lg border border-black/5 bg-white p-2.5 shadow-sm">
                       <Folder className="h-6 w-6 text-[#1A1A1A]/80" />
@@ -113,4 +118,6 @@ export default function Workbench({ projects, onProjectOpen }: WorkbenchProps) {
       </div>
     </>
   );
-}
+});
+
+export default Workbench;

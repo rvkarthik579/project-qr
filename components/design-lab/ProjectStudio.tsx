@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Upload, Search, Settings2, Plus } from "lucide-react";
+import { ArrowLeft, ArrowRight, Upload, Search, Settings2, Plus } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { useCanvasEffect } from "@/components/design-lab/CanvasEffectContext";
@@ -363,17 +363,23 @@ export default function ProjectStudio({ project, onClose }: ProjectStudioProps) 
                   </button>
                 </div>
               ) : (
-                projectFiles.map((file) => (
-                  <motion.div
-                    key={file.id}
-                    layoutId={`file-card-${file.id}`}
-                  onClick={() => {
-                    triggerRipple("#34C759");
-                    setSelectedFile(file);
-                  }}
-                  className="group flex cursor-pointer items-center justify-between rounded-2xl border border-black/5 bg-white p-4 transition-all hover:shadow-[0_8px_30px_-10px_rgba(0,0,0,0.1)]"
-                >
-                  <motion.div layoutId={`file-content-${file.id}`} className="flex flex-1 items-center gap-6">
+                <div className="space-y-3">
+                  <div className="mb-6 rounded-xl border border-black/5 bg-black/[0.02] px-5 py-4">
+                    <p className="font-mono text-xs uppercase tracking-widest text-black/50">
+                      Click a file to view QR codes, download assets, and manage access.
+                    </p>
+                  </div>
+                  {projectFiles.map((file) => (
+                    <motion.div
+                      key={file.id}
+                      layoutId={`file-card-${file.id}`}
+                    onClick={() => {
+                      triggerRipple("#34C759");
+                      setSelectedFile(file);
+                    }}
+                    className="group relative flex cursor-pointer items-center justify-between rounded-2xl border border-black/5 bg-white p-4 transition-all duration-300 hover:-translate-y-0.5 hover:translate-x-1 hover:bg-black/[0.02] hover:shadow-[0_8px_30px_-10px_rgba(0,0,0,0.08)]"
+                  >
+                    <motion.div layoutId={`file-content-${file.id}`} className="flex flex-1 items-center gap-6">
                     <div className="rounded-lg bg-black/5 p-3">
                       {getIcon(file.type)}
                     </div>
@@ -397,19 +403,18 @@ export default function ProjectStudio({ project, onClose }: ProjectStudioProps) 
                         <span>Expires: {file.expiryDate}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                      <button className="rounded-full bg-black/5 p-2 transition-colors hover:bg-black/10">
-                        <span className="sr-only">Download</span>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                      </button>
-                      <button className="rounded-full bg-black/5 p-2 transition-colors hover:bg-black/10">
-                        <span className="sr-only">More actions</span>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
-                      </button>
+                    <div className="flex items-center gap-3 opacity-60 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-1">
+                      <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-black/40 group-hover:text-black/80">
+                        View Details
+                      </span>
+                      <div className="rounded-full bg-black/5 p-2 group-hover:bg-black/10 transition-colors">
+                        <ArrowRight className="h-4 w-4 text-black/60" />
+                      </div>
                     </div>
                   </motion.div>
                 </motion.div>
-                ))
+                ))}
+                </div>
               )}
             </div>
           )}

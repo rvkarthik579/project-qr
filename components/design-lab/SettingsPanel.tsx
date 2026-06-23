@@ -2,7 +2,9 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Bell, Shield, HardDrive, AlertTriangle, QrCode } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -10,7 +12,71 @@ interface SettingsPanelProps {
 }
 
 export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
-  const [pdfLayout, setPdfLayout] = useState("4");
+  const router = useRouter();
+  const [totalFiles, setTotalFiles] = useState(0);
+  const [usedCapacity, setUsedCapacity] = useState(0); // in bytes
+  const [projectCount, setProjectCount] = useState(0);
+  const [qrCount, setQrCount] = useState(0);
+  const [userName, setUserName] = useState("Loading...");
+  const [userEmail, setUserEmail] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    async function loadData() {
+      const supabase = getSupabaseBrowserClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      setUserName(user.user_metadata?.full_name || 'Authenticated User');
+      setUserEmail(user.email || '');
+
+      const { data: files } = await supabase.from('files').select('file_size').eq('user_id', user.id);
+      if (files) {
+        setTotalFiles(files.length);
+        const size = files.reduce((acc, f) => acc + (f.file_size || 0), 0);
+        setUsedCapacity(size);
+      }
+
+      const { count: projCount } = await supabase.from('projects').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
+      if (projCount !== null) setProjectCount(projCount);
+
+      const { count: qCount } = await supabase.from('qr_codes').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
+      if (qCount !== null) setQrCount(qCount);
+    }
+    if (isOpen) {
+      loadData();
+    }
+  }, [isOpen]);
+
+  const handleDeleteAllProjects = async () => {
+    if (!confirm('Are you sure you want to delete ALL projects? This cannot be undone.')) return;
+    setIsDeleting(true);
+    const supabase = getSupabaseBrowserClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from('projects').delete().eq('user_id', user.id);
+    }
+    setIsDeleting(false);
+    window.location.reload();
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!confirm('Are you sure you want to delete your entire account? This cannot be undone.')) return;
+    setIsDeleting(true);
+    const supabase = getSupabaseBrowserClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from('qr_codes').delete().eq('user_id', user.id);
+      await supabase.from('reports').delete().eq('user_id', user.id);
+      await supabase.from('projects').delete().eq('user_id', user.id);
+      await supabase.from('users').delete().eq('id', user.id);
+    }
+    setIsDeleting(false);
+    router.push('/login');
+  };
+
+  const gbUsed = (usedCapacity / (1024 * 1024 * 1024)).toFixed(2);
+  const percentUsed = Math.min(100, (usedCapacity / (10 * 1024 * 1024 * 1024)) * 100);
 
   return (
     <AnimatePresence>
@@ -46,76 +112,53 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             <div className="flex-1 overflow-y-auto p-8 space-y-16">
               
 
-              {/* Notifications */}
+              {/* Profile */}
               <section>
                 <div className="flex items-center gap-3 mb-6 border-b border-black/5 pb-2">
-                  <Bell className="h-4 w-4 text-black/40" />
-                  <h3 className="font-mono text-[11px] uppercase tracking-widest font-bold text-black/60">Notifications</h3>
+                  <div className="h-4 w-4 rounded-full bg-black/10 flex items-center justify-center">
+                    <span className="text-[8px] font-bold">{userName.charAt(0)}</span>
+                  </div>
+                  <h3 className="font-mono text-[11px] uppercase tracking-widest font-bold text-black/60">Profile</h3>
                 </div>
                 <div className="space-y-4">
-                  {["QR scanned", "QR expired", "New upload"].map(notif => (
-                    <div key={notif} className="flex items-center justify-between">
-                      <span className="text-sm text-black/80">{notif}</span>
-                      <div className="w-10 h-5 bg-black/10 rounded-full relative cursor-pointer">
-                        <div className="absolute right-1 top-1 w-3 h-3 bg-white rounded-full shadow-sm" />
-                        <div className="absolute inset-0 bg-[#1A1A1A] rounded-full opacity-100 transition-opacity" />
-                        <div className="absolute right-1 top-1 w-3 h-3 bg-white rounded-full shadow-sm" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              {/* Security */}
-              <section>
-                <div className="flex items-center gap-3 mb-6 border-b border-black/5 pb-2">
-                  <Shield className="h-4 w-4 text-black/40" />
-                  <h3 className="font-mono text-[11px] uppercase tracking-widest font-bold text-black/60">Security</h3>
-                </div>
-                <div className="space-y-4 opacity-50 relative pointer-events-none">
-                  <div className="absolute inset-0 z-10 flex items-center justify-center">
-                    <span className="px-3 py-1 bg-black text-white text-[10px] font-mono uppercase tracking-widest rounded-full shadow-lg">Coming Soon</span>
-                  </div>
-                  <div className="flex items-center justify-between p-4 bg-black/5 rounded-lg blur-[1px]">
-                    <div className="flex flex-col">
-                      <span className="text-sm text-black/80 font-medium">Two-factor Authentication</span>
-                      <span className="text-xs text-black/50">Adds an extra layer of security</span>
-                    </div>
-                    <button className="px-4 py-2 border border-black/20 rounded font-mono text-[10px] uppercase tracking-widest">
-                      Enable
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between p-4 bg-black/5 rounded-lg blur-[1px]">
-                    <div className="flex flex-col">
-                      <span className="text-sm text-black/80 font-medium">Active Sessions</span>
-                      <span className="text-xs text-black/50">Manage signed-in devices</span>
-                    </div>
-                    <button className="px-4 py-2 border border-black/20 rounded font-mono text-[10px] uppercase tracking-widest">
-                      View
-                    </button>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-black/80">{userName}</span>
+                    <span className="text-xs text-black/50">{userEmail}</span>
                   </div>
                 </div>
               </section>
 
-              {/* Storage */}
+              {/* Metrics */}
               <section>
                 <div className="flex items-center gap-3 mb-6 border-b border-black/5 pb-2">
                   <HardDrive className="h-4 w-4 text-black/40" />
-                  <h3 className="font-mono text-[11px] uppercase tracking-widest font-bold text-black/60">Storage</h3>
+                  <h3 className="font-mono text-[11px] uppercase tracking-widest font-bold text-black/60">Metrics & Storage</h3>
                 </div>
+                <div className="grid grid-cols-2 gap-8 mb-8">
+                  <div className="flex flex-col">
+                    <span className="text-4xl font-[family-name:var(--font-instrument)] text-[#1A1A1A]">{projectCount}</span>
+                    <span className="font-mono text-[10px] tracking-widest text-black/40">TOTAL PROJECTS</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-4xl font-[family-name:var(--font-instrument)] text-[#1A1A1A]">{qrCount}</span>
+                    <span className="font-mono text-[10px] tracking-widest text-black/40">TOTAL QR CODES</span>
+                  </div>
+                </div>
+
+
                 <div className="space-y-6">
                   <div className="flex items-end justify-between">
                     <div className="flex flex-col">
-                      <span className="text-4xl font-[family-name:var(--font-instrument)] text-[#1A1A1A]">4.2 GB</span>
+                      <span className="text-4xl font-[family-name:var(--font-instrument)] text-[#1A1A1A]">{gbUsed} GB</span>
                       <span className="font-mono text-[10px] tracking-widest text-black/40">USED CAPACITY</span>
                     </div>
                     <div className="flex flex-col text-right">
-                      <span className="text-4xl font-[family-name:var(--font-instrument)] text-[#1A1A1A]">842</span>
+                      <span className="text-4xl font-[family-name:var(--font-instrument)] text-[#1A1A1A]">{totalFiles}</span>
                       <span className="font-mono text-[10px] tracking-widest text-black/40">TOTAL FILES</span>
                     </div>
                   </div>
                   <div className="w-full h-2 bg-black/5 rounded-full overflow-hidden">
-                    <div className="h-full bg-[#1A1A1A] w-[42%]" />
+                    <div className="h-full bg-[#1A1A1A]" style={{ width: `${percentUsed}%` }} />
                   </div>
                   <div className="flex justify-between font-mono text-[10px] text-black/30">
                     <span>0 GB</span>
@@ -131,15 +174,11 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                   <h3 className="font-mono text-[11px] uppercase tracking-widest font-bold text-red-600">Danger Zone</h3>
                 </div>
                 <div className="space-y-3">
-                  <button className="w-full text-left p-4 rounded-lg border border-red-900/10 text-red-600 hover:bg-red-50 transition-colors">
-                    <span className="block text-sm font-medium">Delete Project</span>
-                    <span className="block text-xs opacity-70 mt-1">Permanently remove the currently active project</span>
-                  </button>
-                  <button className="w-full text-left p-4 rounded-lg border border-red-900/10 text-red-600 hover:bg-red-50 transition-colors">
+                  <button onClick={handleDeleteAllProjects} disabled={isDeleting} className="w-full text-left p-4 rounded-lg border border-red-900/10 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50">
                     <span className="block text-sm font-medium">Delete All Projects</span>
                     <span className="block text-xs opacity-70 mt-1">Clear all project data from the system</span>
                   </button>
-                  <button className="w-full text-left p-4 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors">
+                  <button onClick={handleDeleteAccount} disabled={isDeleting} className="w-full text-left p-4 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50">
                     <span className="block text-sm font-medium">Delete Account</span>
                     <span className="block text-xs opacity-80 mt-1">Permanently erase all data and identity</span>
                   </button>
