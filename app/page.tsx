@@ -36,7 +36,7 @@ export default function LandingPage() {
 
       <nav className={`premium-nav ${scrolled ? 'scrolled' : ''}`}>
         <div className="premium-logo" style={{ display: 'flex', alignItems: 'center' }}>
-          <img src="/logo-dark.svg" alt="Retriqo" style={{ height: '28px' }} />
+          <img src="/retriqo-logo.svg" alt="Retriqo" style={{ height: '28px' }} />
         </div>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <Link href="/login" className="premium-btn premium-btn-ghost">Sign In</Link>

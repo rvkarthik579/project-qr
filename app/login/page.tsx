@@ -44,7 +44,7 @@ export default function LoginPage() {
       
       <div className="premium-container" style={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: '440px', padding: '0 1rem' }}>
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-          <img src="/logo-dark.svg" alt="Retriqo" style={{ height: '40px', margin: '0 auto 1.5rem auto', display: 'block' }} />
+          <img src="/retriqo-logo.svg" alt="Retriqo" style={{ height: '40px', margin: '0 auto 1.5rem auto', display: 'block' }} />
           <h1 style={{ fontSize: '2.5rem', fontWeight: 600, letterSpacing: '-0.02em', marginBottom: '0.75rem', color: '#fff' }}>
             Access Your Archive
           </h1>

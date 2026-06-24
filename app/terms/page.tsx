@@ -6,7 +6,7 @@ export default function TermsPage() {
       <nav className="premium-nav" style={{ position: 'relative', background: 'transparent' }}>
         <div className="premium-logo">
           <Link href="/" className="premium-logo" style={{ display: 'flex', alignItems: 'center' }}>
-            <img src="/logo-dark.svg" alt="Retriqo" style={{ height: '28px' }} />
+            <img src="/retriqo-logo.svg" alt="Retriqo" style={{ height: '28px' }} />
           </Link>
         </div>
       </nav>

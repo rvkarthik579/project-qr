@@ -52,7 +52,7 @@ export default function Sidebar({ user, deviceCount = 0 }: SidebarProps) {
       {/* Logo */}
       <div style={{ padding: '24px 20px 20px', borderBottom: '1px solid var(--border)' }}>
         <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-          <img src="/logo-dark.svg" alt="Retriqo" style={{ height: '24px' }} />
+          <img src="/retriqo-logo.svg" alt="Retriqo" style={{ height: '24px' }} />
         </Link>
       </div>
 
