@@ -31,6 +31,7 @@ export default function ProjectStudio({ project, onClose }: ProjectStudioProps) 
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [isGeneratingPrint, setIsGeneratingPrint] = useState(false);
+  const [copiedQR, setCopiedQR] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchFiles() {
@@ -158,6 +159,34 @@ export default function ProjectStudio({ project, onClose }: ProjectStudioProps) 
     const labels = getQRLabelData();
     const blob = await pdf(<QRLabelPDF labels={labels} layout={layout} />).toBlob();
     return blob;
+  };
+
+  const handleFileAction = async (e: React.MouseEvent, filePath: string, action: 'download' | 'copy' | 'open', fileName: string) => {
+    e.stopPropagation();
+    const supabase = getSupabaseBrowserClient();
+    const { data, error } = await supabase.storage
+      .from('project-qr-files')
+      .createSignedUrl(filePath, 300, action === 'download' ? { download: fileName } : undefined);
+    
+    if (error || !data) {
+      console.error('Failed to generate secure URL', error);
+      return;
+    }
+
+    if (action === 'open') {
+      window.open(data.signedUrl, '_blank');
+    } else if (action === 'copy') {
+      navigator.clipboard.writeText(data.signedUrl);
+      setCopiedQR('file-' + filePath);
+      setTimeout(() => setCopiedQR(null), 2000);
+    } else if (action === 'download') {
+      const a = document.createElement('a');
+      a.href = data.signedUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
   };
 
   const handleExport = async (layout: QRLayout) => {
@@ -403,11 +432,17 @@ export default function ProjectStudio({ project, onClose }: ProjectStudioProps) 
                         <span>Expires: {file.expiryDate}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 opacity-60 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-1">
-                      <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-black/40 group-hover:text-black/80">
-                        View Details
-                      </span>
-                      <div className="rounded-full bg-black/5 p-2 group-hover:bg-black/10 transition-colors">
+                    <div className="flex items-center gap-4 opacity-0 transition-all duration-300 group-hover:opacity-100">
+                      <button onClick={(e) => handleFileAction(e, file.filePath || '', 'download', file.name)} className="text-xs font-medium text-black/50 hover:text-black">
+                        Download File
+                      </button>
+                      <button onClick={(e) => handleFileAction(e, file.filePath || '', 'copy', file.name)} className="text-xs font-medium text-black/50 hover:text-black">
+                        {copiedQR === 'file-' + file.filePath ? 'Copied!' : 'Copy Link'}
+                      </button>
+                      <button onClick={(e) => handleFileAction(e, file.filePath || '', 'open', file.name)} className="text-xs font-medium text-black/50 hover:text-black">
+                        Open In New Tab
+                      </button>
+                      <div className="ml-2 rounded-full bg-black/5 p-2 transition-colors hover:bg-black/10">
                         <ArrowRight className="h-4 w-4 text-black/60" />
                       </div>
                     </div>
