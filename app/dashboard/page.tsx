@@ -150,7 +150,10 @@ function DashboardContent() {
         {selectedProject && (
           <ProjectStudio
             project={selectedProject}
-            onClose={() => setSelectedProject(null)}
+            onClose={() => {
+              setSelectedProject(null);
+              setIsProjectsOpen(true);
+            }}
           />
         )}
       </AnimatePresence>
