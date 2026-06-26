@@ -52,66 +52,68 @@ export async function POST(
     // Check if revoked
     if (!qr.is_active) {
       await logScan(supabase, qr.id, ip, deviceType, true, 'REVOKED')
-      return NextResponse.json({ status: 'revoked' })
+      return NextResponse.json({ status: 'revoked', message: 'Access denied' }, { status: 403 })
     }
 
     // Check expiry
     if (qr.expiry_date && new Date(qr.expiry_date) < new Date()) {
       await logScan(supabase, qr.id, ip, deviceType, true, 'EXPIRED')
-      return NextResponse.json({ status: 'expired', expiryDate: qr.expiry_date })
+      return NextResponse.json({ status: 'expired', expiryDate: qr.expiry_date, message: 'QR expired' }, { status: 410 })
     }
 
     // Check database-backed PIN lockout
     if (qr.locked_until && new Date(qr.locked_until) > new Date()) {
-      const secondsRemaining = Math.ceil((new Date(qr.locked_until).getTime() - Date.now()) / 1000)
-      await logScan(supabase, qr.id, ip, deviceType, true, 'LOCKED')
-      return NextResponse.json({ status: 'locked', secondsRemaining })
+      await logScan(supabase, qr.id, ip, deviceType, true, 'LOCKED_OUT')
+      const secondsRemaining = Math.ceil((new Date(qr.locked_until).getTime() - new Date().getTime()) / 1000)
+      return NextResponse.json({ 
+        status: 'locked', 
+        message: 'PIN locked',
+        secondsRemaining 
+      }, { status: 423 })
     }
 
-    // Clear expired lockout
-    if (qr.locked_until && new Date(qr.locked_until) <= new Date()) {
-      await supabase
-        .from('qr_codes')
-        .update({ failed_pin_attempts: 0, locked_until: null })
-        .eq('id', qr.id)
-    }
-
-    // Check PIN if required
+    // PIN Verification
     if (qr.password_hash) {
       if (!pin) {
         return NextResponse.json({ status: 'pin_required' })
       }
-
-      const pinValid = await bcrypt.compare(pin, qr.password_hash)
-      if (!pinValid) {
-        const newCount = (qr.failed_pin_attempts || 0) + 1
-
-        if (newCount >= MAX_ATTEMPTS) {
-          const lockUntil = new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000).toISOString()
-          await supabase
-            .from('qr_codes')
-            .update({ failed_pin_attempts: newCount, locked_until: lockUntil })
+      
+      const isValid = await bcrypt.compare(pin, qr.password_hash)
+      if (!isValid) {
+        // Increment failed attempts
+        const newAttempts = (qr.failed_pin_attempts || 0) + 1
+        
+        if (newAttempts >= MAX_ATTEMPTS) {
+          const lockedUntil = new Date()
+          lockedUntil.setMinutes(lockedUntil.getMinutes() + LOCKOUT_MINUTES)
+          
+          await supabase.from('qr_codes')
+            .update({ failed_pin_attempts: 0, locked_until: lockedUntil.toISOString() })
             .eq('id', qr.id)
-          await logScan(supabase, qr.id, ip, deviceType, true, 'WRONG_PIN_LOCKED')
-          return NextResponse.json({ status: 'locked', locked: true })
+            
+          await logScan(supabase, qr.id, ip, deviceType, true, 'LOCKED_OUT')
+          return NextResponse.json({ 
+            status: 'locked', 
+            message: 'PIN locked',
+            secondsRemaining: LOCKOUT_MINUTES * 60 
+          }, { status: 423 })
+        } else {
+          await supabase.from('qr_codes')
+            .update({ failed_pin_attempts: newAttempts })
+            .eq('id', qr.id)
+            
+          await logScan(supabase, qr.id, ip, deviceType, true, 'INVALID_PIN')
+          return NextResponse.json({ 
+            status: 'wrong_pin', 
+            attemptsLeft: MAX_ATTEMPTS - newAttempts 
+          })
         }
-
-        await supabase
-          .from('qr_codes')
-          .update({ failed_pin_attempts: newCount })
+      } else if (qr.failed_pin_attempts > 0) {
+        // Reset attempts on success
+        await supabase.from('qr_codes')
+          .update({ failed_pin_attempts: 0, locked_until: null })
           .eq('id', qr.id)
-        await logScan(supabase, qr.id, ip, deviceType, true, 'WRONG_PIN')
-        return NextResponse.json({
-          status: 'wrong_pin',
-          attemptsLeft: MAX_ATTEMPTS - newCount
-        })
       }
-
-      // Clear failed attempts on success
-      await supabase
-        .from('qr_codes')
-        .update({ failed_pin_attempts: 0, locked_until: null })
-        .eq('id', qr.id)
     }
 
     // Success — extract data

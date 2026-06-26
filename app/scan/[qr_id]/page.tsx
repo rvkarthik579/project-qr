@@ -20,7 +20,7 @@ interface QRData {
 export default function ScanPage({ params }: { params: { qr_id: string } }) {
   const qrId = params.qr_id
   const [qrData, setQrData] = useState<QRData | null>(null)
-  const [status, setStatus] = useState<'loading' | 'valid' | 'expired' | 'revoked' | 'invalid' | 'pin' | 'locked'>('loading')
+  const [status, setStatus] = useState<'loading' | 'valid' | 'expired' | 'revoked' | 'invalid' | 'pin' | 'locked' | 'not_found' | 'server_error'>('loading')
   const [pin, setPin] = useState('')
   const [pinError, setPinError] = useState('')
   const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null)
@@ -52,24 +52,33 @@ export default function ScanPage({ params }: { params: { qr_id: string } }) {
         body: JSON.stringify(body)
       })
       
-      const result = await res.json()
+      const result = await res.json().catch(() => ({}))
 
-      if (res.status === 404 || result.status === 'error') {
-        setStatus('invalid')
+      if (res.status === 404) {
+        setStatus('not_found')
         return
-      }
-
-      if (result.status === 'revoked') {
+      } else if (res.status === 403) {
         setStatus('revoked')
-      } else if (result.status === 'expired') {
+        return
+      } else if (res.status === 410) {
         setStatus('expired')
         if (result.expiryDate) {
           setQrData({ ...result.data, expiryDate: result.expiryDate } as any)
         }
-      } else if (result.status === 'locked') {
+        return
+      } else if (res.status === 423) {
         setStatus('locked')
         setSecondsRemaining(result.secondsRemaining || 900)
-      } else if (result.status === 'pin_required') {
+        return
+      } else if (res.status === 500 || res.status >= 500) {
+        setStatus('server_error')
+        return
+      } else if (res.status !== 200 && result.status !== 'pin_required' && result.status !== 'wrong_pin') {
+        setStatus('invalid')
+        return
+      }
+
+      if (result.status === 'pin_required') {
         setStatus('pin')
       } else if (result.status === 'wrong_pin') {
         setStatus('pin')
@@ -83,7 +92,7 @@ export default function ScanPage({ params }: { params: { qr_id: string } }) {
       }
     } catch (err) {
       console.error('Scan error:', err)
-      setStatus('invalid')
+      setStatus('server_error')
     }
   }
 
@@ -121,6 +130,36 @@ export default function ScanPage({ params }: { params: { qr_id: string } }) {
     </div>
   )
 
+  // STATUS: NOT FOUND
+  if (status === 'not_found') return (
+    <div style={{
+      minHeight: '100vh', background: '#07080f',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 24, fontFamily: 'Inter, sans-serif'
+    }}>
+      <div style={{ textAlign: 'center', maxWidth: 320 }}>
+        <div style={{ fontSize: 64, marginBottom: 16 }}>🔍</div>
+        <h1 style={{ fontFamily: 'Geist, sans-serif', fontSize: 24, fontWeight: 700, color: '#f0eeff', marginBottom: 8 }}>QR Not Found</h1>
+        <p style={{ color: '#9896b8', fontSize: 16, lineHeight: 1.5 }}>This QR code does not exist in our system.</p>
+      </div>
+    </div>
+  )
+
+  // STATUS: SERVER ERROR
+  if (status === 'server_error') return (
+    <div style={{
+      minHeight: '100vh', background: '#07080f',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 24, fontFamily: 'Inter, sans-serif'
+    }}>
+      <div style={{ textAlign: 'center', maxWidth: 320 }}>
+        <div style={{ fontSize: 64, marginBottom: 16 }}>💥</div>
+        <h1 style={{ fontFamily: 'Geist, sans-serif', fontSize: 24, fontWeight: 700, color: '#ff5a5a', marginBottom: 8 }}>Server Error</h1>
+        <p style={{ color: '#9896b8', fontSize: 16, lineHeight: 1.5 }}>There was a problem verifying this QR code. Please try again later.</p>
+      </div>
+    </div>
+  )
+
   // STATUS: INVALID
   if (status === 'invalid') return (
     <div style={{
@@ -131,7 +170,7 @@ export default function ScanPage({ params }: { params: { qr_id: string } }) {
       <div style={{ textAlign: 'center', maxWidth: 320 }}>
         <div style={{ fontSize: 64, marginBottom: 16 }}>⚠️</div>
         <h1 style={{ fontFamily: 'Geist, sans-serif', fontSize: 24, fontWeight: 700, color: '#f0eeff', marginBottom: 8 }}>Invalid QR Code</h1>
-        <p style={{ color: '#9896b8', fontSize: 16, lineHeight: 1.5 }}>This QR code does not exist or has been removed.</p>
+        <p style={{ color: '#9896b8', fontSize: 16, lineHeight: 1.5 }}>This QR code is invalid or the data is malformed.</p>
       </div>
     </div>
   )

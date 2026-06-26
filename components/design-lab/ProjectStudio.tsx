@@ -135,16 +135,20 @@ export default function ProjectStudio({ project, onClose }: ProjectStudioProps) 
   };
 
   const getQRLabelData = (): QRLabelData[] => {
-    return projectFiles.map((file) => ({
-      machineName: file.projectName,
-      fileName: file.name,
-      qrUniqueId: file.qrUniqueId || `QR-${file.id.toUpperCase()}-${Math.floor(Math.random() * 1000)}`,
-      expiryDate: file.expiryDate,
-      generatedDate: new Date().toISOString(),
-      status: file.status === "Active" ? "pass" : "needs_attention",
-      // Production app URL for QR scanning
-      qrDataUrl: `https://api.qrserver.com/v1/create-qr-code/?size=512&data=https://projectqr.app/scan/${file.qrUniqueId}`,
-    }));
+    return projectFiles.map((file) => {
+      if (!file.qrUniqueId) {
+        console.warn(`QR unavailable for file ${file.id}. Missing qrUniqueId.`);
+      }
+      return {
+        machineName: file.projectName,
+        fileName: file.name,
+        qrUniqueId: file.qrUniqueId || '',
+        expiryDate: file.expiryDate,
+        generatedDate: new Date().toISOString(),
+        status: file.status === "Active" ? "pass" : "needs_attention",
+        qrDataUrl: file.qrUniqueId ? `https://api.qrserver.com/v1/create-qr-code/?size=512&data=https://projectqr.app/scan/${file.qrUniqueId}` : '',
+      };
+    });
   };
 
   const generatePDFBlob = async (layout: QRLayout) => {
