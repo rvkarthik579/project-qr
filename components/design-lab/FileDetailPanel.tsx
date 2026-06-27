@@ -11,13 +11,17 @@ import {
   Loader2,
   Link2,
   ExternalLink,
-  Eye
+  Eye,
+  Edit2,
+  Calendar,
+  Check,
+  X as XIcon
 } from "lucide-react";
 import { useCanvasEffect } from "@/components/design-lab/CanvasEffectContext";
 import type { DesignLabFile } from "@/components/design-lab/types";
 import { QRCodeSVG } from "qrcode.react";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface FileDetailPanelProps {
   file: DesignLabFile;
@@ -31,6 +35,64 @@ export default function FileDetailPanel({ file, onClose, onDelete }: FileDetailP
   const [isDownloadingFile, setIsDownloadingFile] = useState(false);
   const [copiedQR, setCopiedQR] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [localFile, setLocalFile] = useState<DesignLabFile>(file);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [newName, setNewName] = useState(file.name);
+  const [isEditingExpiry, setIsEditingExpiry] = useState(false);
+  const [newExpiry, setNewExpiry] = useState('');
+
+  useEffect(() => {
+    setLocalFile(file);
+    setNewName(file.name);
+  }, [file]);
+
+  const handleRename = async () => {
+    if (!newName.trim() || newName === localFile.name) {
+      setIsRenaming(false);
+      return;
+    }
+    try {
+      const supabase = getSupabaseBrowserClient();
+      await supabase.from('files').update({ file_name: newName }).eq('id', localFile.id);
+      setLocalFile(prev => ({ ...prev, name: newName }));
+      if (onDelete) onDelete(); // Refresh parent
+    } catch (e) {
+      console.error(e);
+      alert('Failed to rename file');
+    }
+    setIsRenaming(false);
+  };
+
+  const handleUpdateExpiry = async (dateStr: string) => {
+    if (!localFile.qrUniqueId) return;
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const newDate = new Date(dateStr);
+      await supabase.from('qr_codes').update({ expiry_date: newDate.toISOString() }).eq('qr_unique_id', localFile.qrUniqueId);
+      
+      const newExpiryFormatted = newDate.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+      let newStatus = localFile.status;
+      if (localFile.status !== 'Revoked' && localFile.status !== 'Needs Attention') {
+        const diff = newDate.getTime() - new Date().getTime();
+        if (diff < 0) newStatus = 'Expired';
+        else if (diff < 7 * 24 * 60 * 60 * 1000) newStatus = 'Expiring Soon';
+        else newStatus = 'Active';
+      }
+      
+      setLocalFile(prev => ({ ...prev, expiryDate: newExpiryFormatted, status: newStatus as any }));
+      if (onDelete) onDelete(); // Refresh parent
+    } catch (e) {
+      console.error(e);
+      alert('Failed to update expiry');
+    }
+    setIsEditingExpiry(false);
+  };
+
+  const handleExtend30Days = async () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    await handleUpdateExpiry(d.toISOString());
+  };
 
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this file and its QR codes?')) return;
@@ -185,45 +247,94 @@ export default function FileDetailPanel({ file, onClose, onDelete }: FileDetailP
           </motion.div>
 
           {/* Center — File Details & Actions */}
-          <div className="flex w-full lg:w-[36%] shrink-0 flex-col border-b lg:border-b-0 lg:border-r border-black/5 p-8 lg:p-10">
+          <div className="flex w-full lg:w-[36%] shrink-0 flex-col border-b lg:border-b-0 lg:border-r border-black/5">
             {/* Desktop Back Button */}
-            <button
-              onClick={onClose}
-              className="mb-8 hidden lg:flex w-fit items-center gap-2 rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-widest text-black/60 transition-colors hover:bg-black/5 hover:text-black"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to Project Studio
-            </button>
+            <div className="p-8 pb-4 lg:p-10 lg:pb-4 sticky top-0 bg-[#FCFCFA] z-10">
+              <button
+                onClick={onClose}
+                className="hidden lg:flex w-fit items-center gap-2 rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-widest text-black/60 transition-colors hover:bg-black/5 hover:text-black"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                ← Back
+              </button>
+            </div>
 
-            <motion.h2
-              layoutId={`file-title-${file.id}`}
-              className="mb-8 font-[family-name:var(--font-instrument)] text-3xl lg:text-4xl leading-tight text-[#1A1A1A] break-all"
-            >
-              {file.name}
-            </motion.h2>
+            <div className="flex-1 overflow-y-auto px-8 lg:px-10 pb-4 scrollbar-hide">
+
+            <motion.div layoutId={`file-title-${file.id}`} className="mb-8 flex items-start justify-between gap-4">
+              {isRenaming ? (
+                <div className="flex flex-1 items-center gap-2">
+                  <input
+                    type="text"
+                    value={newName}
+                    onChange={e => setNewName(e.target.value)}
+                    className="w-full font-[family-name:var(--font-instrument)] text-3xl lg:text-4xl leading-tight text-[#1A1A1A] bg-transparent border-b border-black/20 focus:border-black outline-none"
+                    autoFocus
+                    onKeyDown={e => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') setIsRenaming(false); }}
+                  />
+                  <button onClick={handleRename} className="p-2 text-green-600 hover:bg-black/5 rounded-full"><Check className="h-5 w-5"/></button>
+                  <button onClick={() => setIsRenaming(false)} className="p-2 text-red-600 hover:bg-black/5 rounded-full"><XIcon className="h-5 w-5"/></button>
+                </div>
+              ) : (
+                <>
+                  <h2 className="font-[family-name:var(--font-instrument)] text-3xl lg:text-4xl leading-tight text-[#1A1A1A] break-all">
+                    {localFile.name}
+                  </h2>
+                  <button onClick={() => setIsRenaming(true)} className="mt-2 shrink-0 p-2 text-black/40 hover:bg-black/5 hover:text-black rounded-full transition-colors">
+                    <Edit2 className="h-4 w-4" />
+                  </button>
+                </>
+              )}
+            </motion.div>
 
             <div className="space-y-6">
-              {[
-                { label: "Project Name", value: file.projectName },
-                { label: "Created Date", value: file.createdDate },
-                { label: "Expiry Date", value: file.expiryDate },
-                { label: "Uploaded By", value: file.uploadedBy },
-                {
-                  label: "Status",
-                  value: file.status,
-                  highlight: file.status === "Active" ? "text-green-600" : "text-amber-600",
-                },
-              ].map((row) => (
-                <div key={row.label} className="border-b border-black/5 pb-4">
-                  <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-black/40">
-                    {row.label}
-                  </p>
-                  <p className={`text-base font-medium ${row.highlight ?? "text-[#1A1A1A]"}`}>
-                    {row.value}
-                  </p>
-                </div>
-              ))}
+              <div className="border-b border-black/5 pb-4">
+                <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-black/40">Project Name</p>
+                <p className="text-base font-medium text-[#1A1A1A]">{localFile.projectName}</p>
+              </div>
+              <div className="border-b border-black/5 pb-4">
+                <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-black/40">Created Date</p>
+                <p className="text-base font-medium text-[#1A1A1A]">{localFile.createdDate}</p>
+              </div>
+              <div className="border-b border-black/5 pb-4">
+                <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-black/40">Expiry Date</p>
+                {isEditingExpiry ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={newExpiry}
+                      onChange={e => setNewExpiry(e.target.value)}
+                      className="rounded-md border border-black/20 px-2 py-1 text-sm outline-none"
+                    />
+                    <button onClick={() => handleUpdateExpiry(newExpiry)} className="p-1.5 text-green-600 hover:bg-black/5 rounded-full"><Check className="h-4 w-4"/></button>
+                    <button onClick={() => setIsEditingExpiry(false)} className="p-1.5 text-red-600 hover:bg-black/5 rounded-full"><XIcon className="h-4 w-4"/></button>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-base font-medium text-[#1A1A1A]">{localFile.expiryDate}</p>
+                    {localFile.qrUniqueId && (
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => { setNewExpiry(''); setIsEditingExpiry(true); }} className="text-[10px] font-bold uppercase tracking-widest text-black/40 hover:text-black flex items-center gap-1"><Edit2 className="h-3 w-3"/> Edit</button>
+                        <button onClick={handleExtend30Days} className="text-[10px] font-bold uppercase tracking-widest text-blue-600 hover:text-blue-800 flex items-center gap-1"><Calendar className="h-3 w-3"/> Extend 30 Days</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="border-b border-black/5 pb-4">
+                <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-black/40">Uploaded By</p>
+                <p className="text-base font-medium text-[#1A1A1A]">{localFile.uploadedBy}</p>
+              </div>
+              <div className="border-b border-black/5 pb-4">
+                <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-black/40">Status</p>
+                <p className={`text-base font-medium ${localFile.status === 'Active' ? 'text-green-600' : localFile.status === 'Expired' || localFile.status === 'Revoked' ? 'text-red-600' : 'text-amber-600'}`}>
+                  {localFile.status}
+                </p>
+              </div>
             </div>
+            
+            </div>
+            <div className="p-8 pt-4 lg:p-10 lg:pt-4 sticky bottom-0 bg-[#FCFCFA] z-10 border-t border-black/5">
 
             <div className="mt-8 flex flex-col gap-3">
               <button 
@@ -295,6 +406,7 @@ export default function FileDetailPanel({ file, onClose, onDelete }: FileDetailP
               </div>
             </div>
           </div>
+        </div>
 
           {/* Right — Analytics */}
           <motion.div

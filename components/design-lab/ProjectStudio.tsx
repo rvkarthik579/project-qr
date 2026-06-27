@@ -87,6 +87,17 @@ export default function ProjectStudio({ project, onClose }: ProjectStudioProps) 
           const scans = qr ? (scanCounts.get(qr.id) || 0) : 0;
           const lastScan = qr ? (lastScanDates.get(qr.id) || "Never") : "Never";
 
+          let status: "Active" | "Expired" | "Needs Attention" | "Revoked" | "Expiring Soon" = report.status === 'pass' ? 'Active' : 'Needs Attention';
+          if (qr) {
+            if (qr.is_active === false) {
+              status = "Revoked";
+            } else if (qr.expiry_date) {
+              const diff = new Date(qr.expiry_date).getTime() - new Date().getTime();
+              if (diff < 0) status = "Expired";
+              else if (diff < 7 * 24 * 60 * 60 * 1000) status = "Expiring Soon";
+            }
+          }
+
           mappedFiles.push({
             id: f.id,
             name: f.file_name,
@@ -95,7 +106,7 @@ export default function ProjectStudio({ project, onClose }: ProjectStudioProps) 
             createdDate: new Date(f.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
             expiryDate: qr?.expiry_date ? new Date(qr.expiry_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : "Never",
             uploadedBy: "System",
-            status: report.status === 'pass' ? 'Active' : 'Needs Attention',
+            status,
             date: "Recently",
             rotation: 0,
             yOffset: 0,
@@ -425,7 +436,12 @@ export default function ProjectStudio({ project, onClose }: ProjectStudioProps) 
                       </motion.h4>
                       <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-black/50">
                         <span className="flex items-center gap-1.5 min-w-[120px]">
-                          <span className={`h-2 w-2 rounded-full ${file.status === "Active" ? "bg-green-500" : "bg-amber-500"}`} />
+                          <span className={`h-2 w-2 rounded-full ${
+                            file.status === "Active" ? "bg-green-500" :
+                            file.status === "Expired" || file.status === "Revoked" ? "bg-red-500" :
+                            file.status === "Expiring Soon" ? "bg-amber-500" :
+                            "bg-amber-500"
+                          }`} />
                           {file.status}
                         </span>
                         <span className="flex items-center gap-1.5 min-w-[100px]">

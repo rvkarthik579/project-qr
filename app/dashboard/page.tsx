@@ -34,7 +34,7 @@ function DashboardContent() {
         .from('projects')
         .select(`
           id, machine_name, location, created_at,
-          reports(id, files(id, file_name, qr_codes(id)))
+          reports(id, files(id, file_name, qr_codes(id, expiry_date, is_active)))
         `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
@@ -60,7 +60,8 @@ function DashboardContent() {
         const { data: logs } = await supabase
           .from('scan_logs')
           .select('qr_id')
-          .in('qr_id', qrIds);
+          .in('qr_id', qrIds)
+          .eq('was_blocked', false);
         
         logs?.forEach(log => {
           scanCounts.set(log.qr_id, (scanCounts.get(log.qr_id) || 0) + 1);
@@ -71,16 +72,52 @@ function DashboardContent() {
         let filesCount = 0;
         let projectScans = 0;
         const fileNames: string[] = [];
+        
+        let allExpired = true;
+        let hasExpiringSoon = false;
+        let hasAnyQr = false;
 
         p.reports?.forEach((r: any) => {
           filesCount += (r.files?.length || 0);
           r.files?.forEach((f: any) => {
             if (f.file_name) fileNames.push(f.file_name);
             f.qr_codes?.forEach((q: any) => {
+              hasAnyQr = true;
               projectScans += (scanCounts.get(q.id) || 0);
+              
+              if (!q.is_active) {
+                // If revoked, we consider it expired for status purposes, but wait, the prompt says "Respect both is_active and expiry_date"
+                // Let's assume if it's not active, it's inactive (expired).
+                // Actually, the prompt says "Active if expiry_date >= now, Expired if expiry_date < now".
+              }
+              
+              const isQrActive = q.is_active !== false;
+              let isExpired = false;
+              let isExpiringSoon = false;
+              
+              if (q.expiry_date) {
+                const diff = new Date(q.expiry_date).getTime() - new Date().getTime();
+                if (diff < 0) {
+                  isExpired = true;
+                } else if (diff < 7 * 24 * 60 * 60 * 1000) {
+                  isExpiringSoon = true;
+                }
+              }
+              
+              if (!isExpired && isQrActive) {
+                allExpired = false; // found at least one active QR
+              }
+              
+              if (isExpiringSoon && isQrActive) {
+                hasExpiringSoon = true;
+              }
             });
           });
         });
+        
+        let status: "Active" | "Expired" | "Expiring Soon" = "Active";
+        if (hasAnyQr && allExpired) status = "Expired";
+        else if (hasExpiringSoon) status = "Expiring Soon";
 
         return {
           id: p.id,
@@ -92,7 +129,8 @@ function DashboardContent() {
           filesCount,
           qrCount: filesCount, // 1 QR per file
           scanCount: projectScans,
-          lastActivity: new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
+          lastActivity: new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
+          status
         };
       });
       setProjects(mapped);

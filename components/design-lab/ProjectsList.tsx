@@ -26,6 +26,11 @@ const ProjectsList = React.memo(function ProjectsList({
   const { triggerRipple } = useCanvasEffect();
 
   const filteredProjects = projects.filter((p) => {
+    // Status filters
+    if (filter === "Active" && p.status !== "Active") return false;
+    if (filter === "Expired" && p.status !== "Expired") return false;
+    if (filter === "Expiring Soon" && p.status !== "Expiring Soon") return false;
+
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     const matchName = p.name?.toLowerCase().includes(query);
@@ -102,7 +107,7 @@ const ProjectsList = React.memo(function ProjectsList({
             <div className="mb-12 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
               {/* Filter controls without search input (Omniscope handles search) */}
               <div className="flex gap-2 flex-wrap">
-                {["All", "Recent", "Most Scanned", "Newest", "Oldest"].map((f) => (
+                {["All", "Active", "Expired", "Expiring Soon", "Recent", "Oldest"].map((f) => (
                   <button
                     key={f}
                     onClick={() => setFilter(f)}
@@ -164,12 +169,24 @@ const ProjectsList = React.memo(function ProjectsList({
                       onSelectProject(p);
                       onClose();
                     }}
-                    className="group relative flex cursor-pointer flex-col rounded-xl bg-[#FCFCFA] p-8"
+                    className={`group relative flex cursor-pointer flex-col rounded-xl p-8 transition-colors ${p.status === "Expired" ? "bg-red-50/30 border border-red-500/20" : "bg-[#FCFCFA]"}`}
                     style={paperStyle}
                   >
                     <div className="mb-12 flex items-start justify-between">
-                      <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
-                        <Folder className="h-8 w-8 text-[#1A1A1A]/80" />
+                      <div className="flex items-center gap-4">
+                        <div className={`rounded-2xl border bg-white p-4 shadow-sm ${p.status === "Expired" ? "border-red-500/20" : "border-black/5"}`}>
+                          <Folder className={`h-8 w-8 ${p.status === "Expired" ? "text-red-500/80" : "text-[#1A1A1A]/80"}`} />
+                        </div>
+                        {p.status === "Expired" && (
+                          <span className="rounded-full bg-red-100 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-widest text-red-600">
+                            Expired
+                          </span>
+                        )}
+                        {p.status === "Expiring Soon" && (
+                          <span className="rounded-full bg-amber-100 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-widest text-amber-600">
+                            Expiring Soon
+                          </span>
+                        )}
                       </div>
                       <div className="flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
                         <button

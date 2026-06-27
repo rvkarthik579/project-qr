@@ -6,7 +6,7 @@ export interface DesignLabFile {
   createdDate: string;
   expiryDate: string;
   uploadedBy: string;
-  status: "Active" | "Expired" | "Needs Attention";
+  status: "Active" | "Expired" | "Needs Attention" | "Revoked" | "Expiring Soon";
   date: string;
   rotation: number;
   yOffset: number;
@@ -30,4 +30,5 @@ export interface DesignLabProject {
   rawCreatedAt?: string;
   location?: string;
   fileNames?: string[];
+  status?: "Active" | "Expired" | "Expiring Soon";
 }
