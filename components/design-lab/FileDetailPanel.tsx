@@ -225,6 +225,80 @@ export default function FileDetailPanel({ file, onClose, onDelete }: FileDetailP
     }
   };
 
+  function renderActions() {
+    return (
+    <div className="flex flex-col gap-3">
+      <button 
+        onClick={() => handleFileAction('preview')}
+        disabled={isDownloadingFile || !file.filePath}
+        className="flex items-center justify-center gap-2 rounded-xl bg-[#6c63ff] py-4 lg:py-3.5 text-white shadow-lg shadow-[#6c63ff]/20 transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 min-h-[56px]"
+      >
+        {isDownloadingFile ? <Loader2 className="h-5 w-5 animate-spin" /> : <Eye className="h-5 w-5" />}
+        <span className="font-mono text-[12px] font-bold uppercase tracking-widest">
+          Preview Report
+        </span>
+      </button>
+      
+      <button 
+        onClick={() => handleFileAction('download')}
+        disabled={isDownloadingFile || !file.filePath}
+        className="flex items-center justify-center gap-2 rounded-xl bg-[#1A1A1A] py-4 lg:py-3.5 text-white transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 min-h-[56px]"
+      >
+        <Download className="h-5 w-5" />
+        <span className="font-mono text-[12px] font-bold uppercase tracking-widest">
+          Download File
+        </span>
+      </button>
+      
+      <div className="grid grid-cols-2 gap-3 mt-2">
+        <button 
+          onClick={() => handleFileAction('copy')}
+          disabled={isDownloadingFile || !file.filePath}
+          className="flex items-center justify-center gap-2 rounded-xl border border-black/10 bg-white py-3.5 text-black/80 transition-colors hover:bg-black/5 disabled:opacity-50 min-h-[56px]"
+        >
+          <Link2 className="h-4 w-4 text-black/50" />
+          <span className="font-mono text-[10px] font-bold uppercase tracking-widest">
+            {copiedQR === file.filePath ? "Copied!" : "Copy Link"}
+          </span>
+        </button>
+        <button 
+          onClick={() => handleFileAction('open')}
+          disabled={isDownloadingFile || !file.filePath}
+          className="flex items-center justify-center gap-2 rounded-xl border border-black/10 bg-white py-3.5 text-black/80 transition-colors hover:bg-black/5 disabled:opacity-50 min-h-[56px]"
+        >
+          <ExternalLink className="h-4 w-4 text-black/50" />
+          <span className="font-mono text-[10px] font-bold uppercase tracking-widest">
+            New Tab
+          </span>
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 mt-2">
+        <button
+          onClick={downloadQR}
+          disabled={!file.qrUniqueId}
+          className="flex items-center justify-center gap-2 rounded-xl border border-black/10 bg-white py-3.5 text-black/80 transition-colors hover:bg-black/5 disabled:opacity-50 min-h-[56px]"
+        >
+          <QrCode className="h-4 w-4 text-black/50" />
+          <span className="font-mono text-[10px] font-bold uppercase tracking-widest">
+            Save QR
+          </span>
+        </button>
+        <button
+          onClick={handleDelete}
+          disabled={isDeleting}
+          className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 py-3.5 text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50 min-h-[56px]"
+        >
+          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+          <span className="font-mono text-[10px] font-bold uppercase tracking-widest">
+            Delete
+          </span>
+        </button>
+      </div>
+    </div>
+    );
+  }
+
   return (
     <>
       <motion.div
@@ -237,26 +311,25 @@ export default function FileDetailPanel({ file, onClose, onDelete }: FileDetailP
       <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-0 lg:p-[5vh]">
         <motion.div
           layoutId={`file-card-${file.id}`}
-          className="pointer-events-auto flex h-full w-full lg:h-[90vh] lg:w-[90vw] max-w-[1400px] flex-col lg:flex-row overflow-y-auto lg:overflow-hidden bg-[#FCFCFA] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.2)] lg:rounded-2xl"
+          className="pointer-events-auto flex h-[100dvh] w-full lg:h-[90vh] lg:w-[90vw] max-w-[1400px] flex-col lg:flex-row overflow-hidden bg-[#FCFCFA] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.2)] lg:rounded-2xl relative"
           transition={{ type: "spring", stiffness: 350, damping: 35 }}
           style={{
             backgroundImage:
               "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.02'/%3E%3C/svg%3E\")",
           }}
         >
+          <div className="flex-1 overflow-y-auto lg:contents pb-[380px] lg:pb-0">
           {/* Top/Left — QR Code */}
           <motion.div
             layoutId={`file-content-${file.id}`}
             className="flex w-full lg:w-[28%] shrink-0 flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-black/5 bg-[#F9F9F8]/80 p-8 lg:p-10"
           >
-            {/* Mobile Back Button - Only visible on small screens */}
             <div className="w-full flex justify-start mb-6 lg:hidden">
               <button
                 onClick={onClose}
                 className="flex items-center gap-2 rounded-full bg-white px-5 py-3 shadow-sm font-mono text-[11px] font-bold uppercase tracking-widest text-[#1A1A1A] transition-colors hover:bg-black/5"
               >
-                <ArrowLeft className="h-4 w-4" />
-                Back
+                ← Back
               </button>
             </div>
 
@@ -294,7 +367,6 @@ export default function FileDetailPanel({ file, onClose, onDelete }: FileDetailP
                 onClick={onClose}
                 className="hidden lg:flex w-fit items-center gap-2 rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-widest text-black/60 transition-colors hover:bg-black/5 hover:text-black"
               >
-                <ArrowLeft className="h-4 w-4" />
                 ← Back
               </button>
             </div>
@@ -411,79 +483,10 @@ export default function FileDetailPanel({ file, onClose, onDelete }: FileDetailP
             </div>
             
             </div>
-            <div className="p-8 pt-4 lg:p-10 lg:pt-4 sticky bottom-0 bg-[#FCFCFA] z-10 border-t border-black/5">
-
-            <div className="mt-8 flex flex-col gap-3">
-              <button 
-                onClick={() => handleFileAction('preview')}
-                disabled={isDownloadingFile || !file.filePath}
-                className="flex items-center justify-center gap-2 rounded-xl bg-[#6c63ff] py-4 lg:py-3.5 text-white shadow-lg shadow-[#6c63ff]/20 transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 min-h-[56px]"
-              >
-                {isDownloadingFile ? <Loader2 className="h-5 w-5 animate-spin" /> : <Eye className="h-5 w-5" />}
-                <span className="font-mono text-[12px] font-bold uppercase tracking-widest">
-                  Preview Report
-                </span>
-              </button>
-              
-              <button 
-                onClick={() => handleFileAction('download')}
-                disabled={isDownloadingFile || !file.filePath}
-                className="flex items-center justify-center gap-2 rounded-xl bg-[#1A1A1A] py-4 lg:py-3.5 text-white transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 min-h-[56px]"
-              >
-                <Download className="h-5 w-5" />
-                <span className="font-mono text-[12px] font-bold uppercase tracking-widest">
-                  Download File
-                </span>
-              </button>
-              
-              <div className="grid grid-cols-2 gap-3 mt-2">
-                <button 
-                  onClick={() => handleFileAction('copy')}
-                  disabled={isDownloadingFile || !file.filePath}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-black/10 bg-white py-3.5 text-black/80 transition-colors hover:bg-black/5 disabled:opacity-50 min-h-[56px]"
-                >
-                  <Link2 className="h-4 w-4 text-black/50" />
-                  <span className="font-mono text-[10px] font-bold uppercase tracking-widest">
-                    {copiedQR === file.filePath ? "Copied!" : "Copy Link"}
-                  </span>
-                </button>
-                <button 
-                  onClick={() => handleFileAction('open')}
-                  disabled={isDownloadingFile || !file.filePath}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-black/10 bg-white py-3.5 text-black/80 transition-colors hover:bg-black/5 disabled:opacity-50 min-h-[56px]"
-                >
-                  <ExternalLink className="h-4 w-4 text-black/50" />
-                  <span className="font-mono text-[10px] font-bold uppercase tracking-widest">
-                    New Tab
-                  </span>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 mt-2">
-                <button
-                  onClick={downloadQR}
-                  disabled={!file.qrUniqueId}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-black/10 bg-white py-3.5 text-black/80 transition-colors hover:bg-black/5 disabled:opacity-50 min-h-[56px]"
-                >
-                  <QrCode className="h-4 w-4 text-black/50" />
-                  <span className="font-mono text-[10px] font-bold uppercase tracking-widest">
-                    Save QR
-                  </span>
-                </button>
-                <button
-                  onClick={handleDelete}
-                  disabled={isDeleting}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 py-3.5 text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50 min-h-[56px]"
-                >
-                  {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                  <span className="font-mono text-[10px] font-bold uppercase tracking-widest">
-                    Delete
-                  </span>
-                </button>
-              </div>
+            <div className="hidden lg:block p-8 pt-4 lg:p-10 lg:pt-4 sticky bottom-0 bg-[#FCFCFA] z-10 border-t border-black/5">
+              {renderActions()}
             </div>
           </div>
-        </div>
 
           {/* Right — Analytics */}
           <motion.div
@@ -548,6 +551,11 @@ export default function FileDetailPanel({ file, onClose, onDelete }: FileDetailP
               </div>
             </div>
           </motion.div>
+          </div>
+          
+          <div className="lg:hidden absolute bottom-0 left-0 right-0 p-5 bg-[#FCFCFA] border-t border-black/10 shadow-[0_-20px_40px_rgba(0,0,0,0.08)] z-50">
+            {renderActions()}
+          </div>
         </motion.div>
       </div>
     </>

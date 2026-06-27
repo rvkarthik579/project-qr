@@ -340,30 +340,37 @@ export default function ProjectStudio({ project, onClose }: ProjectStudioProps) 
             </div>
           </motion.div>
 
-          <motion.div layoutId={`project-content-${project.id}`} className="mb-8 lg:mb-16">
+          <motion.div layoutId={`project-content-${project.id}`} className="mb-8 lg:mb-12">
             <motion.h1
               className="mb-6 font-[family-name:var(--font-instrument)] text-4xl lg:text-6xl text-[#1A1A1A] break-all"
             >
               {project.name}
             </motion.h1>
-            <div className="flex flex-wrap gap-6 lg:gap-8 border-b border-black/5 pb-8">
-              <div className="flex flex-col gap-1 min-w-[80px]">
-                <span className="font-mono text-[10px] uppercase tracking-widest text-black/40">
-                  Files
-                </span>
-                <span className="text-lg">{project.filesCount}</span>
+            
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pb-8 border-b border-black/5">
+              <div className="rounded-xl border border-black/5 bg-white p-4 shadow-sm">
+                <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-black/40">Total Files</p>
+                <p className="text-2xl font-bold text-[#1A1A1A]">{projectFiles.length}</p>
               </div>
-              <div className="flex flex-col gap-1 min-w-[80px]">
-                <span className="font-mono text-[10px] uppercase tracking-widest text-black/40">
-                  QR Codes
-                </span>
-                <span className="text-lg">{project.qrCount}</span>
+              <div className="rounded-xl border border-black/5 bg-white p-4 shadow-sm">
+                <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-black/40">Total Scans</p>
+                <p className="text-2xl font-bold text-[#1A1A1A]">{projectFiles.reduce((acc, f) => acc + (f.scans || 0), 0)}</p>
               </div>
-              <div className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-widest text-black/40">
-                  Last Activity
-                </span>
-                <span className="text-lg">{project.lastActivity}</span>
+              <div className="rounded-xl border border-black/5 bg-white p-4 shadow-sm">
+                <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-black/40">Active Files</p>
+                <p className="text-2xl font-bold text-green-600">{projectFiles.filter(f => f.status === 'Active').length}</p>
+              </div>
+              <div className="rounded-xl border border-black/5 bg-white p-4 shadow-sm">
+                <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-black/40">Expiring Soon</p>
+                <p className="text-2xl font-bold text-amber-500">{projectFiles.filter(f => f.status === 'Expiring Soon').length}</p>
+              </div>
+              <div className="rounded-xl border border-black/5 bg-white p-4 shadow-sm">
+                <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-black/40">Expired</p>
+                <p className="text-2xl font-bold text-red-600">{projectFiles.filter(f => f.status === 'Expired' || f.status === 'Revoked').length}</p>
+              </div>
+              <div className="rounded-xl border border-black/5 bg-white p-4 shadow-sm">
+                <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-black/40">Last Activity</p>
+                <p className="text-lg font-bold text-[#1A1A1A] mt-1">{project.lastActivity}</p>
               </div>
             </div>
           </motion.div>

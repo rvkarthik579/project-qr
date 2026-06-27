@@ -91,9 +91,9 @@ const ProjectsList = React.memo(function ProjectsList({
           exit={{ opacity: 0, y: 20 }}
           className="fixed inset-0 z-40 overflow-y-auto bg-[#F9F9F8] pb-32"
         >
-          <div className="mx-auto max-w-6xl px-8 py-12">
-            <div className="mb-16 flex items-center justify-between">
-              <h2 className="font-[family-name:var(--font-instrument)] text-6xl text-[#1A1A1A]">
+          <div className="mx-auto max-w-6xl px-4 sm:px-8 py-12">
+            <div className="mb-10 sm:mb-16 flex items-center justify-between">
+              <h2 className="font-[family-name:var(--font-instrument)] text-4xl sm:text-6xl text-[#1A1A1A]">
                 All Projects
               </h2>
               <button
@@ -121,7 +121,7 @@ const ProjectsList = React.memo(function ProjectsList({
                   </button>
                 ))}
               </div>
-              <div className="flex items-center gap-4 w-full md:w-auto">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full md:w-auto">
                 <div className="relative flex-1 md:w-64">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-black/40" />
                   <input

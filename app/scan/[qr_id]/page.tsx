@@ -455,9 +455,17 @@ export default function ScanPage({ params }: { params: { qr_id: string } }) {
           )}
 
         </div>
+      </div>
 
-        {/* File actions */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 32 }}>
+      {/* File actions - Sticky Bottom for one-handed usage */}
+      <div style={{ 
+        position: 'fixed', bottom: 0, left: 0, right: 0,
+        background: 'linear-gradient(to top, #07080f 80%, transparent)',
+        padding: '32px 24px 24px 24px',
+        display: 'flex', justifyContent: 'center',
+        zIndex: 100
+      }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 440 }}>
           {qrData?.fileUrl ? (
             <>
               <button
@@ -507,15 +515,18 @@ export default function ScanPage({ params }: { params: { qr_id: string } }) {
             </button>
           )}
         </div>
-
-        <p style={{
-          fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#5e5c80',
-          textAlign: 'center', letterSpacing: '0.1em', marginTop: 'auto'
-        }}>
-          ID: {qrId}
-        </p>
-
       </div>
+      
+      {/* Footer spacer */}
+      <div style={{ height: 140 }} />
+      
+      <p style={{
+        fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#5e5c80',
+        textAlign: 'center', letterSpacing: '0.1em', position: 'absolute', bottom: 180, width: '100%'
+      }}>
+        ID: {qrId}
+      </p>
+
     </div>
   )
 }

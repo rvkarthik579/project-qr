@@ -376,3 +376,15 @@
     font-size: 2rem;
   }
 }
+@media (max-width: 768px) {
+  .premium-hero h1 { font-size: 3rem !important; line-height: 1.1; letter-spacing: -0.04em; }
+  .hero-subtitle { font-size: 1.1rem; }
+  .premium-hero { padding: 120px 0 60px; }
+  .hero-schematic { flex-direction: column; align-items: center; gap: 1rem; }
+  .sch-arrow { transform: rotate(90deg); margin: 0; }
+  .value-grid, .workflow-list { grid-template-columns: 1fr; }
+  .premium-nav { padding: 0 1rem; }
+  .premium-container { padding: 0 1rem; }
+  .security-terminal { padding: 1rem; }
+  .term-line { flex-direction: column; gap: 0.25rem; }
+}

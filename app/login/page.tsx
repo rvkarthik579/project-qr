@@ -37,7 +37,7 @@ export default function LoginPage() {
     <div className="landing-premium" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
       <RoutingCanvas />
       
-      <div style={{ position: 'absolute', top: '2rem', left: '2rem', zIndex: 20 }}>
+      <div style={{ position: 'absolute', top: 'clamp(1rem, 3vw, 2rem)', left: 'clamp(1rem, 3vw, 2rem)', zIndex: 20 }}>
         <Link href="/" className="premium-btn premium-btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem' }}>
           <IconArrowLeft size={16} />
           Back to home
@@ -59,7 +59,7 @@ export default function LoginPage() {
           background: 'rgba(255, 255, 255, 0.02)', 
           border: '1px solid rgba(255, 255, 255, 0.05)', 
           borderRadius: '24px', 
-          padding: '2.5rem',
+          padding: 'clamp(1.5rem, 5vw, 2.5rem)',
           backdropFilter: 'blur(20px)'
         }}>
           {error && (

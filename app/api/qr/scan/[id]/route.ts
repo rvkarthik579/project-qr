@@ -199,6 +199,22 @@ async function logScan(
 ) {
   if (!qrId) return
   try {
+    if (!wasBlocked) {
+      const tenSecondsAgo = new Date(Date.now() - 10000).toISOString()
+      const { data: recentLogs } = await supabase
+        .from('scan_logs')
+        .select('id')
+        .eq('qr_id', qrId)
+        .eq('ip_address', ip)
+        .eq('was_blocked', false)
+        .gte('scanned_at', tenSecondsAgo)
+        .limit(1)
+      
+      if (recentLogs && recentLogs.length > 0) {
+        return // Skip duplicate
+      }
+    }
+
     await supabase.from('scan_logs').insert({
       qr_id: qrId,
       scanned_at: new Date().toISOString(),
@@ -207,5 +223,7 @@ async function logScan(
       was_blocked: wasBlocked,
       block_reason: blockReason,
     })
-  } catch {}
+  } catch (err) {
+    console.error('Logging scan failed:', err)
+  }
 }
