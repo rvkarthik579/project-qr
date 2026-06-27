@@ -41,7 +41,7 @@ export default function ProjectStudio({ project, onClose }: ProjectStudioProps) 
           id, status,
           files(
             id, file_name, file_type, file_path, file_size, created_at,
-            qr_codes(id, qr_unique_id, expiry_date, is_active)
+            qr_codes(id, qr_unique_id, expiry_date, is_active, password_hash)
           )
         `)
         .eq('project_id', project.id);
@@ -66,15 +66,15 @@ export default function ProjectStudio({ project, onClose }: ProjectStudioProps) 
       if (qrIds.length > 0) {
         const { data: logs } = await supabase
           .from('scan_logs')
-          .select('qr_id, was_blocked, created_at')
+          .select('qr_id, was_blocked, scanned_at')
           .in('qr_id', qrIds)
-          .order('created_at', { ascending: false });
+          .order('scanned_at', { ascending: false });
 
         logs?.forEach(log => {
           if (!log.was_blocked) {
             scanCounts.set(log.qr_id, (scanCounts.get(log.qr_id) || 0) + 1);
             if (!lastScanDates.has(log.qr_id)) {
-              lastScanDates.set(log.qr_id, new Date(log.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }));
+              lastScanDates.set(log.qr_id, new Date(log.scanned_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }));
             }
           }
         });
@@ -107,6 +107,7 @@ export default function ProjectStudio({ project, onClose }: ProjectStudioProps) 
             expiryDate: qr?.expiry_date ? new Date(qr.expiry_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : "Never",
             uploadedBy: "System",
             status,
+            requiresPin: !!qr?.password_hash,
             date: "Recently",
             rotation: 0,
             yOffset: 0,
@@ -448,8 +449,10 @@ export default function ProjectStudio({ project, onClose }: ProjectStudioProps) 
                           <QrCode className="h-3.5 w-3.5" />
                           {file.scans} Scans
                         </span>
-                        <span className="min-w-[140px]">Created: {file.createdDate}</span>
                         <span className="min-w-[140px]">Expires: {file.expiryDate}</span>
+                        {file.lastScan !== "Never" && (
+                          <span className="min-w-[140px]">Last Scanned: {file.lastScan}</span>
+                        )}
                       </div>
                     </div>
                     <div className="hidden sm:flex ml-2 rounded-full bg-black/5 p-2 transition-colors group-hover:bg-black/10">

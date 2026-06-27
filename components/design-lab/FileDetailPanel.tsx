@@ -15,7 +15,9 @@ import {
   Edit2,
   Calendar,
   Check,
-  X as XIcon
+  X as XIcon,
+  Shield,
+  Key
 } from "lucide-react";
 import { useCanvasEffect } from "@/components/design-lab/CanvasEffectContext";
 import type { DesignLabFile } from "@/components/design-lab/types";
@@ -40,6 +42,44 @@ export default function FileDetailPanel({ file, onClose, onDelete }: FileDetailP
   const [newName, setNewName] = useState(file.name);
   const [isEditingExpiry, setIsEditingExpiry] = useState(false);
   const [newExpiry, setNewExpiry] = useState('');
+  const [isEditingPin, setIsEditingPin] = useState(false);
+  const [newPin, setNewPin] = useState('');
+  const [isSavingPin, setIsSavingPin] = useState(false);
+
+  const handleUpdatePin = async (pinValue: string | null) => {
+    if (!localFile.qrUniqueId) return;
+    setIsSavingPin(true);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      let hashToSave = null;
+      
+      if (pinValue) {
+        if (!/^\d{4}$/.test(pinValue)) {
+          alert('PIN must be exactly 4 digits');
+          setIsSavingPin(false);
+          return;
+        }
+        const res = await fetch('/api/qr/hash-pin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin: pinValue })
+        });
+        if (!res.ok) throw new Error('Failed to hash PIN');
+        const data = await res.json();
+        hashToSave = data.hash;
+      }
+      
+      await supabase.from('qr_codes').update({ password_hash: hashToSave }).eq('qr_unique_id', localFile.qrUniqueId);
+      setLocalFile(prev => ({ ...prev, requiresPin: !!hashToSave }));
+      if (onDelete) onDelete(); // Refresh parent
+    } catch (e) {
+      console.error(e);
+      alert('Failed to update PIN');
+    }
+    setIsSavingPin(false);
+    setIsEditingPin(false);
+    setNewPin('');
+  };
 
   useEffect(() => {
     setLocalFile(file);
@@ -324,6 +364,43 @@ export default function FileDetailPanel({ file, onClose, onDelete }: FileDetailP
               <div className="border-b border-black/5 pb-4">
                 <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-black/40">Uploaded By</p>
                 <p className="text-base font-medium text-[#1A1A1A]">{localFile.uploadedBy}</p>
+              </div>
+              <div className="border-b border-black/5 pb-4">
+                <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-black/40">Security</p>
+                {isEditingPin ? (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="password"
+                        maxLength={4}
+                        placeholder="4-digit PIN"
+                        value={newPin}
+                        onChange={e => setNewPin(e.target.value.replace(/\D/g, ''))}
+                        className="w-24 rounded-md border border-black/20 px-2 py-1 text-sm outline-none text-center tracking-widest font-mono"
+                      />
+                      <button disabled={isSavingPin} onClick={() => handleUpdatePin(newPin)} className="p-1.5 text-green-600 hover:bg-black/5 rounded-full disabled:opacity-50"><Check className="h-4 w-4"/></button>
+                      <button disabled={isSavingPin} onClick={() => { setIsEditingPin(false); setNewPin(''); }} className="p-1.5 text-red-600 hover:bg-black/5 rounded-full disabled:opacity-50"><XIcon className="h-4 w-4"/></button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className={`text-base font-medium ${localFile.requiresPin ? 'text-[#1A1A1A]' : 'text-black/40'}`}>
+                      {localFile.requiresPin ? 'PIN Protected' : 'No PIN'}
+                    </p>
+                    {localFile.qrUniqueId && (
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setIsEditingPin(true)} className="text-[10px] font-bold uppercase tracking-widest text-black/40 hover:text-black flex items-center gap-1">
+                          <Key className="h-3 w-3"/> {localFile.requiresPin ? 'Change PIN' : 'Set PIN'}
+                        </button>
+                        {localFile.requiresPin && (
+                          <button onClick={() => { if(confirm('Remove PIN protection?')) handleUpdatePin(null); }} className="text-[10px] font-bold uppercase tracking-widest text-red-600 hover:text-red-800 flex items-center gap-1">
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="border-b border-black/5 pb-4">
                 <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-black/40">Status</p>

@@ -7,6 +7,7 @@ export interface DesignLabFile {
   expiryDate: string;
   uploadedBy: string;
   status: "Active" | "Expired" | "Needs Attention" | "Revoked" | "Expiring Soon";
+  requiresPin: boolean;
   date: string;
   rotation: number;
   yOffset: number;
