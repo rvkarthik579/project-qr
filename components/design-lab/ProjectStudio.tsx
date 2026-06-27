@@ -10,6 +10,7 @@ import FileDetailPanel from "@/components/design-lab/FileDetailPanel";
 import type { DesignLabProject, DesignLabFile } from "@/components/design-lab/types";
 import { FileText, FileSpreadsheet, QrCode, Printer, Download, ChevronDown, Loader2 } from "lucide-react";
 import type { QRLayout, QRLabelData } from "@/components/pdf/QRLabelPDF";
+import { useBackButton } from "@/hooks/useBackButton";
 
 interface ProjectStudioProps {
   project: DesignLabProject;
@@ -21,6 +22,9 @@ export default function ProjectStudio({ project, onClose }: ProjectStudioProps) 
   const { triggerRipple } = useCanvasEffect();
   const [activeTab, setActiveTab] = useState("files");
   const [selectedFile, setSelectedFile] = useState<DesignLabFile | null>(null);
+
+  // Intercept back button to close this studio instead of navigating away
+  useBackButton(true, onClose);
 
   const [projectFiles, setProjectFiles] = useState<DesignLabFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -261,8 +265,7 @@ export default function ProjectStudio({ project, onClose }: ProjectStudioProps) 
               }}
               className="flex w-full sm:w-auto items-center justify-center sm:justify-start gap-2 rounded-full px-4 py-2 font-mono text-[11px] font-medium uppercase tracking-widest transition-colors hover:bg-black/5"
             >
-              <ArrowLeft className="h-4 w-4" />
-              Back
+              ← Back
             </button>
 
             <div className="flex flex-wrap items-center justify-center gap-3 w-full sm:w-auto">

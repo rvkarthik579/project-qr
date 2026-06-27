@@ -17,7 +17,10 @@ export default function LoginPage() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
-  async function handleGoogle() {
+  async function handleGoogle(e?: React.MouseEvent) {
+    if (e) e.preventDefault()
+    if (googleLoading) return
+    
     setGoogleLoading(true)
     try {
       const { error } = await supabase.auth.signInWithOAuth({

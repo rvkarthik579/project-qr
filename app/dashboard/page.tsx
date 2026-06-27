@@ -21,6 +21,7 @@ function DashboardContent() {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [projects, setProjects] = useState<DesignLabProject[]>([]);
   const [selectedProject, setSelectedProject] = useState<DesignLabProject | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const { triggerRipple } = useCanvasEffect();
 
@@ -134,6 +135,7 @@ function DashboardContent() {
         };
       });
       setProjects(mapped);
+      setIsLoading(false);
 
       // Handle auto-open from URL using searchParams
       const projectIdParam = searchParams.get('project');
@@ -249,10 +251,27 @@ function DashboardContent() {
             Desk
           </span>
         </div>
-        <Workbench projects={projects.slice(0, 6)} onProjectOpen={(id) => {
-          const proj = projects.find(p => p.id === id);
-          if (proj) setSelectedProject(proj);
-        }} />
+
+        {isLoading ? (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-48 rounded-2xl bg-black/5 animate-pulse" />
+            ))}
+          </div>
+        ) : projects.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-black/10 bg-white/50 p-12 text-center">
+            <h3 className="mb-2 font-[family-name:var(--font-instrument)] text-2xl text-[#1A1A1A]">No projects yet</h3>
+            <p className="mb-6 font-mono text-xs uppercase tracking-widest text-black/50">Create your first project to get started.</p>
+          </div>
+        ) : (
+          <Workbench 
+            projects={projects.slice(0, 3)} 
+            onProjectOpen={(id) => {
+              const proj = projects.find(p => p.id === id);
+              if (proj) setSelectedProject(proj);
+            }}
+          />
+        )}
       </section>
     </>
   );

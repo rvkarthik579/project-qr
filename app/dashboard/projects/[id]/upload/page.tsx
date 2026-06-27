@@ -519,8 +519,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
           marginBottom: 24, transition: 'color 150ms ease'
         }}
       >
-        <IconArrowLeft size={16} />
-        Back to Project
+        ← Back
       </Link>
 
       <div className="mb-8 pt-0">

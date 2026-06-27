@@ -360,6 +360,57 @@ export default function ScanPage({ params }: { params: { qr_id: string } }) {
           </div>
         </div>
 
+        {/* Visual Preview */}
+        <div style={{
+          width: '100%', height: 200, marginBottom: 32, borderRadius: 16, overflow: 'hidden',
+          background: '#0d0f1a', border: '1px solid rgba(255,255,255,0.05)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          {(() => {
+            const ext = qrData?.fileName.split('.').pop()?.toLowerCase();
+            if (!qrData?.fileUrl) return null;
+            
+            if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext || '')) {
+              return <img src={qrData.fileUrl} alt={qrData.fileName} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            }
+            if (ext === 'pdf') {
+              // Iframe for PDF preview (browser native)
+              return <iframe src={`${qrData.fileUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} style={{ width: '100%', height: '100%', border: 'none', pointerEvents: 'none' }} title="PDF Preview" />
+            }
+            if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext || '')) {
+              return (
+                <div style={{ textAlign: 'center' }}>
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6c63ff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: '0 auto 12px auto' }}>
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.29 7 12 12 20.71 7"></polyline><line x1="12" y1="22" x2="12" y2="12"></line>
+                  </svg>
+                  <p style={{ color: '#f0eeff', fontSize: 14, fontFamily: 'Geist, sans-serif' }}>Archive File</p>
+                  <p style={{ color: '#5e5c80', fontSize: 12, marginTop: 4 }}>Contains multiple files</p>
+                </div>
+              )
+            }
+            if (['doc', 'docx'].includes(ext || '')) {
+              return (
+                <div style={{ textAlign: 'center' }}>
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: '0 auto 12px auto' }}>
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline>
+                  </svg>
+                  <p style={{ color: '#f0eeff', fontSize: 14, fontFamily: 'Geist, sans-serif' }}>Word Document</p>
+                </div>
+              )
+            }
+            
+            // Default file icon
+            return (
+              <div style={{ textAlign: 'center' }}>
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#9896b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: '0 auto 12px auto' }}>
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+                <p style={{ color: '#f0eeff', fontSize: 14, fontFamily: 'Geist, sans-serif' }}>{qrData.fileName}</p>
+              </div>
+            )
+          })()}
+        </div>
+
         {/* Machine Name */}
         <h1 style={{
           fontFamily: 'Geist, sans-serif',
@@ -518,14 +569,25 @@ export default function ScanPage({ params }: { params: { qr_id: string } }) {
       </div>
       
       {/* Footer spacer */}
-      <div style={{ height: 140 }} />
+      <div style={{ height: 160 }} />
       
-      <p style={{
-        fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#5e5c80',
-        textAlign: 'center', letterSpacing: '0.1em', position: 'absolute', bottom: 180, width: '100%'
+      <div style={{
+        position: 'absolute', bottom: 130, width: '100%',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6
       }}>
-        ID: {qrId}
-      </p>
+        <p style={{
+          fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#5e5c80',
+          textAlign: 'center', letterSpacing: '0.05em'
+        }}>
+          Protected by Retriqo
+        </p>
+        <a href="/" target="_blank" rel="noopener noreferrer" style={{
+          fontFamily: 'Inter, sans-serif', fontSize: 12, color: '#6c63ff',
+          textDecoration: 'none', fontWeight: 500
+        }}>
+          Learn More
+        </a>
+      </div>
 
     </div>
   )

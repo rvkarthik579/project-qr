@@ -24,6 +24,7 @@ import type { DesignLabFile } from "@/components/design-lab/types";
 import { QRCodeSVG } from "qrcode.react";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { useState, useEffect } from "react";
+import { useBackButton } from "@/hooks/useBackButton";
 
 interface FileDetailPanelProps {
   file: DesignLabFile;
@@ -34,6 +35,10 @@ interface FileDetailPanelProps {
 export default function FileDetailPanel({ file, onClose, onDelete }: FileDetailPanelProps) {
   const { triggerRipple } = useCanvasEffect();
   const maxTrend = Math.max(...file.scanTrend, 1);
+  
+  // Intercept back button to close this panel instead of navigating away
+  useBackButton(true, onClose);
+
   const [isDownloadingFile, setIsDownloadingFile] = useState(false);
   const [copiedQR, setCopiedQR] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
