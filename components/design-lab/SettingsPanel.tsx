@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Bell, Shield, HardDrive, AlertTriangle, QrCode } from "lucide-react";
+import { X, HardDrive, AlertTriangle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -35,8 +35,8 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
         let tFiles = 0;
         let uCap = 0;
         projectsData.forEach(p => {
-          p.reports?.forEach((r: any) => {
-            r.files?.forEach((f: any) => {
+          p.reports?.forEach((r: { files: { file_size: number }[] }) => {
+            r.files?.forEach((f: { file_size: number }) => {
               tFiles++;
               uCap += f.file_size || 0;
             });

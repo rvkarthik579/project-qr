@@ -18,7 +18,7 @@ function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isProjectsOpen, setIsProjectsOpen] = useState(false);
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  ;
   const [projects, setProjects] = useState<DesignLabProject[]>([]);
   const [selectedProject, setSelectedProject] = useState<DesignLabProject | null>(null);
   const [isLoading, setIsLoading] = useState(true);

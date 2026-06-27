@@ -39,7 +39,7 @@ export default function Step2Upload() {
           let totalUncompressedSize = 0;
           for (const p of entriesList) {
             const entry = zip.files[p];
-            const uncompressedSize = (entry as any)._data?.uncompressedSize || 0;
+            const uncompressedSize = (entry as JSZip.JSZipObject & { _data?: { uncompressedSize?: number } })._data?.uncompressedSize || 0;
             totalUncompressedSize += uncompressedSize;
             if (totalUncompressedSize > 500 * 1024 * 1024) {
               throw new Error(`Archive expands to over 500MB when extracted. This exceeds the safe limit.`);

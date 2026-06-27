@@ -29,6 +29,7 @@ export default function ScanPage({ params }: { params: { qr_id: string } }) {
 
   useEffect(() => {
     loadQR()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qrId])
 
   useEffect(() => {
@@ -40,11 +41,12 @@ export default function ScanPage({ params }: { params: { qr_id: string } }) {
     } else if (status === 'locked' && secondsRemaining === 0) {
       loadQR()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, secondsRemaining])
 
   async function loadQR(pinToVerify?: string) {
     try {
-      const body: any = {}
+      const body: Record<string, string> = {}
       if (pinToVerify) body.pin = pinToVerify
       
       const res = await fetch(`/api/qr/scan/${qrId}`, {
@@ -64,7 +66,7 @@ export default function ScanPage({ params }: { params: { qr_id: string } }) {
       } else if (res.status === 410) {
         setStatus('expired')
         if (result.expiryDate) {
-          setQrData({ ...result.data, expiryDate: result.expiryDate } as any)
+          setQrData({ ...result.data, expiryDate: result.expiryDate } as QRData)
         }
         return
       } else if (res.status === 423) {
@@ -371,6 +373,7 @@ export default function ScanPage({ params }: { params: { qr_id: string } }) {
             if (!qrData?.fileUrl) return null;
             
             if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext || '')) {
+              // eslint-disable-next-line @next/next/no-img-element
               return <img src={qrData.fileUrl} alt={qrData.fileName} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             }
             if (ext === 'pdf') {

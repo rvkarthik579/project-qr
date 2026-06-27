@@ -3,7 +3,7 @@
 import { Inter, Instrument_Serif } from "next/font/google";
 import { useState, useEffect } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import { Plus } from "lucide-react";
 import LivingCanvas from "@/components/design-lab/LivingCanvas";
 import Omniscope from "@/components/design-lab/Omniscope";
@@ -11,7 +11,6 @@ import SettingsPanel from "@/components/design-lab/SettingsPanel";
 import AccountPanel from "@/components/design-lab/AccountPanel";
 import FloatingDock from "@/components/design-lab/FloatingDock";
 import Workbench from "@/components/design-lab/Workbench";
-import ProjectCards from "@/components/design-lab/ProjectCards";
 import ProjectsList from "@/components/design-lab/ProjectsList";
 import ProjectStudio from "@/components/design-lab/ProjectStudio";
 import CreateProjectWorkflow from "@/components/design-lab/workflow/CreateProjectWorkflow";
@@ -76,7 +75,7 @@ function DesignLabInner() {
   const [isProjectsOpen, setIsProjectsOpen] = useState(false);
   const [isCreationFlowOpen, setIsCreationFlowOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [isFileOpen, setIsFileOpen] = useState(false);
+  const [isFileOpen] = useState(false);
   const [projects, setProjects] = useState<DesignLabProject[]>([]);
   const [selectedProject, setSelectedProject] = useState<DesignLabProject | null>(null);
 
@@ -105,7 +104,7 @@ function DesignLabInner() {
         return;
       }
 
-      const mapped = projectsData.map((p: any) => ({
+      const mapped = projectsData.map((p: { id: string, machine_name: string, created_at: string, reports: unknown[] }) => ({
         id: p.id,
         name: p.machine_name,
         createdDate: new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
@@ -119,7 +118,7 @@ function DesignLabInner() {
   }, []);
 
   const { triggerRipple } = useCanvasEffect();
-  const { addToast } = useToast();
+  useToast();
 
   const openAccount = () => {
     setIsAccountOpen(true);
@@ -160,7 +159,7 @@ function DesignLabInner() {
     setSelectedProject(newProject);
   };
 
-  const showDimOverlay = isSearchFocused || isFileOpen || isCreationFlowOpen;
+  // showDimOverlay was previously used here
 
   return (
       <div

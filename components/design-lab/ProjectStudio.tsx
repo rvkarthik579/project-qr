@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ArrowRight, Upload, Search, Settings2, Plus } from "lucide-react";
+import { Plus, ArrowRight } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { useCanvasEffect } from "@/components/design-lab/CanvasEffectContext";
@@ -33,7 +33,6 @@ export default function ProjectStudio({ project, onClose }: ProjectStudioProps) 
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [isGeneratingPrint, setIsGeneratingPrint] = useState(false);
-  const [copiedQR, setCopiedQR] = useState<string | null>(null);
 
   const fetchFiles = async () => {
     setIsLoading(true);
@@ -139,6 +138,7 @@ export default function ProjectStudio({ project, onClose }: ProjectStudioProps) 
     if (project.id) {
       fetchFiles();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id, project.name]);
 
   const getIcon = (type: string) => {
@@ -185,33 +185,7 @@ export default function ProjectStudio({ project, onClose }: ProjectStudioProps) 
     return blob;
   };
 
-  const handleFileAction = async (e: React.MouseEvent, filePath: string, action: 'download' | 'copy' | 'open', fileName: string) => {
-    e.stopPropagation();
-    const supabase = getSupabaseBrowserClient();
-    const { data, error } = await supabase.storage
-      .from('project-qr-files')
-      .createSignedUrl(filePath, 300, action === 'download' ? { download: fileName } : undefined);
-    
-    if (error || !data) {
-      console.error('Failed to generate secure URL', error);
-      return;
-    }
 
-    if (action === 'open') {
-      window.open(data.signedUrl, '_blank');
-    } else if (action === 'copy') {
-      navigator.clipboard.writeText(data.signedUrl);
-      setCopiedQR('file-' + filePath);
-      setTimeout(() => setCopiedQR(null), 2000);
-    } else if (action === 'download') {
-      const a = document.createElement('a');
-      a.href = data.signedUrl;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    }
-  };
 
   const handleExport = async (layout: QRLayout) => {
     try {

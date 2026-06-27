@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { SlidersHorizontal, Image as ImageIcon, Box, AlertTriangle, ArrowRight } from "lucide-react";
+import { Image as ImageIcon, AlertTriangle, ArrowRight } from "lucide-react";
 import type { WorkspaceConfig } from "./CreateProjectWorkspace";
 
 interface ToolPaletteProps {

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Edit, LogOut, Key, X } from "lucide-react";
+import { Edit, LogOut, Key, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";

@@ -171,7 +171,8 @@ export default function SettingsPage() {
                   flexShrink: 0
                 }}>
                   {avatarUrl
-                    ? <img src={avatarUrl} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ? /* eslint-disable-next-line @next/next/no-img-element */
+<img src={avatarUrl} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     : <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '1.25rem', fontWeight: 500, color: 'white' }}>{initials}</span>
                   }
                 </div>

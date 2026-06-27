@@ -7,10 +7,7 @@ import {
   ArrowRight, 
   UploadCloud, 
   FileText, 
-  FileBox, 
-  FileImage, 
   CheckCircle2,
-  Settings2,
   QrCode,
   Download,
   Printer
@@ -34,8 +31,6 @@ export default function ProjectCreationFlow({
 
   // Step 1 State
   const [projectName, setProjectName] = useState("");
-  const [machineName, setMachineName] = useState("");
-  const [location, setLocation] = useState("");
   
   // Step 2 State
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
@@ -45,8 +40,7 @@ export default function ProjectCreationFlow({
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
 
   // Step 4 State
-  const [expiryDate, setExpiryDate] = useState("");
-  const [status, setStatus] = useState("Pass");
+  // (State removed as unused)
 
   const nextStep = () => setStep(s => Math.min(s + 1, 5));
   const prevStep = () => setStep(s => Math.max(s - 1, 1));

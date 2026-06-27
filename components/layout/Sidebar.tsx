@@ -1,12 +1,9 @@
 'use client'
 import retriqoLogo from '@/public/retriqo-logo.svg';
 import Image from 'next/image';
-
-
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { 
-  IconQrcode, 
   IconLayoutDashboard, 
   IconPlus, 
   IconChartBar, 

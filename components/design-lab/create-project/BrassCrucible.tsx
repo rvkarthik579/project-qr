@@ -10,7 +10,7 @@ interface BrassCrucibleProps {
   setFiles: React.Dispatch<React.SetStateAction<WorkspaceFile[]>>;
 }
 
-export default function BrassCrucible({ files, setFiles }: BrassCrucibleProps) {
+export default function BrassCrucible({ files }: BrassCrucibleProps) {
   const convertedFiles = files.filter(f => f.isConverted);
   const [pulseKey, setPulseKey] = useState(0);
 

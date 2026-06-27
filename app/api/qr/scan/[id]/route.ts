@@ -116,7 +116,7 @@ export async function POST(
 
     const file = Array.isArray(qr.files) ? qr.files[0] as unknown as FileRow : qr.files as unknown as FileRow
 
-    const { data: report, error: reportError } = await supabase
+    const { data: report, error: _reportError } = await supabase
       .from('reports')
       .select('id, status, remarks, created_at, project_id')
       .eq('id', file?.report_id)
@@ -124,7 +124,7 @@ export async function POST(
       .limit(1)
       .maybeSingle()
 
-    const { data: project, error: projectError } = report?.project_id
+    const { data: project, error: _projectError } = report?.project_id
       ? await supabase
           .from('projects')
           .select('machine_name, user_id')
@@ -156,7 +156,7 @@ export async function POST(
       .from('project-qr-files')
       .createSignedUrl(file?.file_path ?? '', 300)
 
-    const { data: downloadUrlData, error: downloadUrlError } = await supabase.storage
+    const { data: downloadUrlData, error: _downloadUrlError } = await supabase.storage
       .from('project-qr-files')
       .createSignedUrl(file?.file_path ?? '', 300, { download: file?.file_name || true })
 

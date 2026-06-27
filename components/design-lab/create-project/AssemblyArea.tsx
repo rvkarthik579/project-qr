@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { UploadCloud, CheckCircle2 } from "lucide-react";
+import type { PanInfo } from "framer-motion";
 import FileArtifact from "./FileArtifact";
 import InspectionCard from "./InspectionCard";
 import type { WorkspaceFile } from "./CreateProjectWorkspace";
@@ -44,7 +45,7 @@ export default function AssemblyArea({ files, setFiles }: AssemblyAreaProps) {
     setIsInspecting(false);
   };
 
-  const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: any, fileId: string) => {
+  const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo, fileId: string) => {
     // Check if dropped on the right side of the screen (Crucible area)
     if (info.point.x > window.innerWidth / 2) {
       setFiles((prev) => prev.map(f => f.id === fileId ? { ...f, isConverted: true } : f));

@@ -2,9 +2,7 @@
 
 import { motion } from "framer-motion";
 import {
-  ArrowLeft,
   Download,
-  RotateCw,
   Trash2,
   QrCode,
   TrendingUp,
@@ -16,7 +14,6 @@ import {
   Calendar,
   Check,
   X as XIcon,
-  Shield,
   Key
 } from "lucide-react";
 import { useCanvasEffect } from "@/components/design-lab/CanvasEffectContext";
@@ -124,7 +121,7 @@ export default function FileDetailPanel({ file, onClose, onDelete }: FileDetailP
         else newStatus = 'Active';
       }
       
-      setLocalFile(prev => ({ ...prev, expiryDate: newExpiryFormatted, status: newStatus as any }));
+      setLocalFile(prev => ({ ...prev, expiryDate: newExpiryFormatted, status: newStatus as DesignLabFile['status'] }));
       if (onDelete) onDelete(); // Refresh parent
     } catch (e) {
       console.error(e);

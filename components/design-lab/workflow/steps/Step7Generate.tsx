@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, QrCode, Download, FileText, CheckCircle2 } from "lucide-react";
+import { ArrowRight, QrCode, Download, CheckCircle2 } from "lucide-react";
 import { useProjectWorkflow } from "@/store/useProjectWorkflow";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { uploadFile } from "@/lib/storage";
@@ -80,7 +80,7 @@ export default function Step7Generate({ onComplete }: { onComplete: (p: DesignLa
           if (!f.file) continue;
 
           // Upload to storage
-          const { path: storagePath, url, error: uploadErr } = await uploadFile(
+          const { path: storagePath, error: uploadErr } = await uploadFile(
             f.file, user.id, projectRecord.id, report.id
           );
           
@@ -133,7 +133,7 @@ export default function Step7Generate({ onComplete }: { onComplete: (p: DesignLa
         setCreatedProject(newProj);
         setTimeout(() => setIsFinished(true), 400);
 
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Generation failed:", err);
         // You might want to handle error state UI here
       } finally {

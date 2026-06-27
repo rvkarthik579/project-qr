@@ -2,7 +2,7 @@
 
 import { useState, useRef, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Folder } from "lucide-react";
+import { Folder } from "lucide-react";
 import type { DesignLabProject } from "@/components/design-lab/types";
 import { useCanvasEffect } from "@/components/design-lab/CanvasEffectContext";
 

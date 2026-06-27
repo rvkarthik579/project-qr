@@ -4,8 +4,10 @@ import React from "react";
 import { motion } from "framer-motion";
 import { FolderPlus, Upload, QrCode, Printer, Smartphone } from "lucide-react";
 
+import type { DesignLabProject } from "@/components/design-lab/types";
+
 type OnboardingHeroProps = {
-  projects: any[];
+  projects: DesignLabProject[];
 };
 
 const STEPS = [

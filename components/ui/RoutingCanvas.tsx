@@ -25,8 +25,8 @@ export default function RoutingCanvas() {
     };
     window.addEventListener('resize', resize);
 
-    const nodes: any[] = [];
-    const signals: any[] = [];
+    const nodes: Node[] = [];
+    const signals: Signal[] = [];
     const timeouts: NodeJS.Timeout[] = [];
     const cols = 14;
     const rows = 10;
@@ -46,7 +46,7 @@ export default function RoutingCanvas() {
     }
 
     class Signal {
-      currentNode!: any; targetNode!: any; progress!: number; speed!: number; active!: boolean;
+      currentNode!: Node; targetNode!: Node; progress!: number; speed!: number; active!: boolean;
       constructor() { this.reset(); }
       reset() {
         const rC = Math.floor(Math.random() * (cols-1));

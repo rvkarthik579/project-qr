@@ -228,7 +228,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
             let totalUncompressedSize = 0
             for (const p of entriesList) {
               const entry = zip.files[p]
-              const uncompressedSize = (entry as any)._data?.uncompressedSize || 0
+              const uncompressedSize = (entry as JSZip.JSZipObject & { _data?: { uncompressedSize?: number } })._data?.uncompressedSize || 0
               totalUncompressedSize += uncompressedSize
               if (totalUncompressedSize > 500 * 1024 * 1024) {
                 throw new Error(`Archive expands to over 500MB when extracted. This exceeds the safe limit.`)
@@ -336,7 +336,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
     setDragging(false)
     const files = Array.from(e.dataTransfer.files)
     await processFiles(files)
-  }, [])
+  }, [processFiles])
 
   function handleToggleFile(path: string, file?: File) {
     const newPaths = new Set(selectedPaths)

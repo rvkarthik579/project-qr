@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useState } from 'react'
 import Link from 'next/link'
 import { createBrowserClient } from '@supabase/ssr'
-import { IconBrandGoogle, IconQrcode, IconAlertCircle, IconArrowLeft } from '@tabler/icons-react'
+import { IconBrandGoogle, IconAlertCircle, IconArrowLeft } from '@tabler/icons-react'
 import RoutingCanvas from '@/components/ui/RoutingCanvas'
 
 export default function LoginPage() {
