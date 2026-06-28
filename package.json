@@ -1,13 +1,20 @@
 {
   "name": "retriqo",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
+  "description": "Retriqo helps industrial teams securely store inspection reports, generate QR codes, and instantly retrieve machine history with a single scan.",
+  "author": "Retriqo",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rvkarthik579/project-qr.git"
+  },
+  "homepage": "https://project-qr-xi.vercel.app",
+  "keywords": ["industrial", "qr", "asset management", "documentation", "retriqo"],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "check:qr-integrity": "node scripts/check-qr-integrity.js"
+    "lint": "next lint"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.12",

@@ -17,13 +17,33 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "Retriqo — Every Machine. Every Report. One Scan Away.",
-  description: "Securely store inspection reports, generate a unique QR code, and attach it to your equipment. Instantly retrieve the machine's entire history with a single scan.",
+  metadataBase: new URL('https://project-qr-xi.vercel.app'),
+  title: "Retriqo — Industrial QR Document Management",
+  description: "Retriqo helps industrial teams securely store inspection reports, generate QR codes, and instantly retrieve machine history with a single scan.",
   keywords: "industrial asset management, QR routing, secure archives, Retriqo",
   openGraph: {
-    title: "Retriqo — Every Machine. Every Report. One Scan Away.",
-    description: "Securely store inspection reports, generate a unique QR code, and attach it to your equipment.",
+    title: "Retriqo — Industrial QR Document Management",
+    description: "Retriqo helps industrial teams securely store inspection reports, generate QR codes, and instantly retrieve machine history with a single scan.",
+    url: "https://project-qr-xi.vercel.app",
+    siteName: "Retriqo",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Retriqo — Industrial QR Document Management",
+      },
+    ],
     type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Retriqo — Industrial QR Document Management",
+    description: "Retriqo helps industrial teams securely store inspection reports, generate QR codes, and instantly retrieve machine history with a single scan.",
+    images: ["/og-image.png"],
+  },
+  alternates: {
+    canonical: "https://project-qr-xi.vercel.app",
   },
 };
 
