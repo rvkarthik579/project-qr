@@ -18,7 +18,7 @@ import type { QRLayout } from '@/components/pdf/QRLabelPDF'
 
 const STEPS = ['Upload', 'Select Files', 'QR Expiry', 'QR Settings', 'Generate']
 const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
-const ACCEPTED_TYPES = ['.pdf', '.doc', '.docx', '.zip', '.rar', '.7z', '.tar', '.gz', '.war', '.ear']
+const ACCEPTED_TYPES = ['.pdf', '.doc', '.docx', '.zip', '.rar', '.7z', '.tar', '.gz', '.war', '.ear', '.jpg', '.jpeg', '.png', '.webp']
 
 interface GeneratedQR {
   qrUniqueId: string
@@ -561,7 +561,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
                 Upload Files
               </h2>
               <p style={{ color: '#1A1A1A', fontSize: '0.9rem', fontWeight: 500 }}>
-                Drag & drop ZIP, RAR, 7Z, TAR, PDF, or DOCX files. Max 50MB. Archives will be expanded automatically.
+                Drag & drop ZIP, RAR, 7Z, TAR, PDF, DOCX, or Image files. Max 50MB. Archives will be expanded automatically.
               </p>
             </div>
 
@@ -586,14 +586,14 @@ export default function UploadPage({ params }: { params: { id: string } }) {
                   Drop files here or click to browse
                 </div>
                 <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  ZIP · RAR · 7Z · TAR · PDF · DOCX — max 50MB
+                  ZIP · RAR · 7Z · TAR · PDF · DOCX · Images — max 50MB
                 </div>
               </div>
               <input
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept=".zip,.rar,.tar,.gz,.7z,.ear,.war,.pdf,.docx,.doc"
+                accept=".zip,.rar,.tar,.gz,.7z,.ear,.war,.pdf,.docx,.doc,.jpg,.jpeg,.png,.webp"
                 style={{ display: 'none' }}
                 onChange={async e => {
                   if (e.target.files) await processFiles(Array.from(e.target.files))
