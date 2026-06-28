@@ -41,7 +41,7 @@ export default function LandingPage() {
           <Image src={retriqoLogo} alt="Retriqo" style={{ height: '28px' , width: 'auto'}} priority unoptimized />
         </div>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <Link href="/login" className="premium-btn premium-btn-ghost">Sign In</Link>
+          <Link href="/login" style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textDecoration: 'none', fontWeight: 500, marginRight: '0.5rem' }}>Sign In</Link>
           <Link href="/register" className="premium-btn premium-btn-primary">Get Started</Link>
         </div>
       </nav>
@@ -50,14 +50,20 @@ export default function LandingPage() {
         
         {/* HERO SECTION */}
         <section className="premium-hero">
-          <h1>Records. Retrieved.</h1>
+          <h1>End manual record-keeping.</h1>
           <p className="hero-subtitle reveal-up delay-1">
-            Secure, time-locked documentation routed directly to the factory floor.<br/>
+            Secure, time-locked asset documentation routed directly to the factory floor.<br/>
             Scan once. Retrieve forever.
           </p>
+          <div className="reveal-up delay-2" style={{ marginBottom: '2rem' }}>
+            <Link href="/register" className="premium-btn premium-btn-primary" style={{ padding: '1rem 2rem', fontSize: '1rem' }}>Get Started</Link>
+          </div>
+          <div className="reveal-up delay-3" style={{ fontSize: '0.75rem', color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1rem' }}>
+            Designed for Manufacturing • Energy • Logistics • Defense
+          </div>
 
           {/* VISUAL SCHEMATIC */}
-          <div className="hero-schematic reveal-up" style={{ marginTop: '2rem', display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <div className="hero-schematic reveal-up delay-4" style={{ marginTop: '2rem', display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
             <div className="sch-node mono">
               <div className="sch-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -80,10 +86,17 @@ export default function LandingPage() {
             </div>
             <div className="sch-arrow mono">➔</div>
             <div className="sch-node mono">
-              <div className="sch-icon" style={{ color: 'var(--text-main)' }}>
+              <div className="sch-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7V5c0-1.1.9-2 2-2h2"/><path d="M17 3h2c1.1 0 2 .9 2 2v2"/><path d="M21 17v2c0 1.1-.9 2-2 2h-2"/><path d="M7 21H5c-1.1 0-2-.9-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
+              </div>
+              Scan Anytime
+            </div>
+            <div className="sch-arrow mono">➔</div>
+            <div className="sch-node mono">
+              <div className="sch-icon" style={{ color: 'var(--text-main)', borderColor: 'var(--border-active)', background: 'rgba(255,255,255,0.03)' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
               </div>
-              Retrieve Later
+              Instant Access
             </div>
           </div>
         </section>
