@@ -1,6 +1,5 @@
 "use client";
 
-import { Inter, Instrument_Serif } from "next/font/google";
 import { useState, useEffect } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { AnimatePresence } from "framer-motion";
@@ -18,7 +17,6 @@ function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isProjectsOpen, setIsProjectsOpen] = useState(false);
-  ;
   const [projects, setProjects] = useState<DesignLabProject[]>([]);
   const [selectedProject, setSelectedProject] = useState<DesignLabProject | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -47,9 +45,9 @@ function DashboardContent() {
 
       const qrIds: string[] = [];
       projectsData.forEach(p => {
-        p.reports?.forEach((r: any) => {
-          r.files?.forEach((f: any) => {
-            f.qr_codes?.forEach((q: any) => {
+        p.reports?.forEach((r: Record<string, any>) => {
+          r.files?.forEach((f: Record<string, any>) => {
+            f.qr_codes?.forEach((q: Record<string, any>) => {
               if (q.id) qrIds.push(q.id);
             });
           });
@@ -69,7 +67,7 @@ function DashboardContent() {
         });
       }
 
-      const mapped = projectsData.map((p: any) => {
+      const mapped = projectsData.map((p: Record<string, any>) => {
         let filesCount = 0;
         let projectScans = 0;
         const fileNames: string[] = [];
@@ -78,11 +76,11 @@ function DashboardContent() {
         let hasExpiringSoon = false;
         let hasAnyQr = false;
 
-        p.reports?.forEach((r: any) => {
+        p.reports?.forEach((r: Record<string, any>) => {
           filesCount += (r.files?.length || 0);
-          r.files?.forEach((f: any) => {
+          r.files?.forEach((f: Record<string, any>) => {
             if (f.file_name) fileNames.push(f.file_name);
-            f.qr_codes?.forEach((q: any) => {
+            f.qr_codes?.forEach((q: Record<string, any>) => {
               hasAnyQr = true;
               projectScans += (scanCounts.get(q.id) || 0);
               

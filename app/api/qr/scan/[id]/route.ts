@@ -25,8 +25,6 @@ export async function POST(
   try {
     // Use admin client to bypass RLS — this route serves unauthenticated public users
     const supabase = createSupabaseAdminClient()
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-    const projectRef = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] || 'unknown'
 
     // Fetch QR code record first. Do not let embedded relationship errors mask QR existence.
     const { data: qr, error: qrError } = await supabase
@@ -116,7 +114,7 @@ export async function POST(
 
     const file = Array.isArray(qr.files) ? qr.files[0] as unknown as FileRow : qr.files as unknown as FileRow
 
-    const { data: report, error: _reportError } = await supabase
+    const { data: report } = await supabase
       .from('reports')
       .select('id, status, remarks, created_at, project_id')
       .eq('id', file?.report_id)
@@ -124,13 +122,13 @@ export async function POST(
       .limit(1)
       .maybeSingle()
 
-    const { data: project, error: _projectError } = report?.project_id
+    const { data: project } = report?.project_id
       ? await supabase
           .from('projects')
           .select('machine_name, user_id')
           .eq('id', report.project_id)
           .maybeSingle()
-      : { data: null, error: null }
+      : { data: null }
 
     let user = null;
     if (project?.user_id) {
@@ -156,7 +154,7 @@ export async function POST(
       .from('project-qr-files')
       .createSignedUrl(file?.file_path ?? '', 300)
 
-    const { data: downloadUrlData, error: _downloadUrlError } = await supabase.storage
+    const { data: downloadUrlData } = await supabase.storage
       .from('project-qr-files')
       .createSignedUrl(file?.file_path ?? '', 300, { download: file?.file_name || true })
 
@@ -220,7 +218,7 @@ async function logScan(
     // Attempt to insert with user_agent if column exists, otherwise it might drop it or fail.
     // To be safe and satisfy "Use user_agent", we log it if the schema allows.
     // If the schema only has device_type, we rely on device_type for deduplication.
-    const insertData: any = {
+    const insertData: Record<string, unknown> = {
       qr_id: qrId,
       scanned_at: new Date().toISOString(),
       ip_address: ip,

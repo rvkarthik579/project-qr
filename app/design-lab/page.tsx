@@ -74,8 +74,6 @@ function DesignLabInner() {
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isProjectsOpen, setIsProjectsOpen] = useState(false);
   const [isCreationFlowOpen, setIsCreationFlowOpen] = useState(false);
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [isFileOpen] = useState(false);
   const [projects, setProjects] = useState<DesignLabProject[]>([]);
   const [selectedProject, setSelectedProject] = useState<DesignLabProject | null>(null);
 
@@ -228,7 +226,7 @@ function DesignLabInner() {
           </button>
 
           <div className="w-full">
-            <Omniscope onFocusChange={setIsSearchFocused} />
+            <Omniscope onFocusChange={() => {}} />
           </div>
         </header>
 

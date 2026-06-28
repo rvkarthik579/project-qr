@@ -11,6 +11,7 @@ export default function AnalyticsPage() {
   const [metrics, setMetrics] = useState({ totalScans: 0, uniqueDevices: 0, blockedAttempts: 0, activeQRs: 0 })
   const [chartData, setChartData] = useState<{ date: string; scans: number }[]>([])
   const [topAssets, setTopAssets] = useState<{ name: string; scans: number }[]>([])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [events, setEvents] = useState<any[]>([])
   const [eventsPage, setEventsPage] = useState(0)
   const [hasMoreEvents, setHasMoreEvents] = useState(true)
@@ -65,7 +66,7 @@ export default function AnalyticsPage() {
       scansByQR.set(l.qr_id, (scansByQR.get(l.qr_id) || 0) + 1)
     })
     const top = qrs?.map(q => ({
-      name: (q.files as any)?.reports?.projects?.machine_name || 'Unknown',
+      name: (q.files as Record<string, any>)?.reports?.projects?.machine_name || 'Unknown',
       qrId: q.id,
       scans: scansByQR.get(q.id) || 0,
     }))

@@ -17,12 +17,12 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "Retriqo — Records. Retrieved.",
-  description: "Secure, time-locked documentation routed directly to the factory floor. Scan once. Retrieve forever.",
+  title: "Retriqo — Every Machine. Every Report. One Scan Away.",
+  description: "Securely store inspection reports, generate a unique QR code, and attach it to your equipment. Instantly retrieve the machine's entire history with a single scan.",
   keywords: "industrial asset management, QR routing, secure archives, Retriqo",
   openGraph: {
-    title: "Retriqo — Records. Retrieved.",
-    description: "Secure, time-locked documentation routed directly to the factory floor.",
+    title: "Retriqo — Every Machine. Every Report. One Scan Away.",
+    description: "Securely store inspection reports, generate a unique QR code, and attach it to your equipment.",
     type: "website",
   },
 };

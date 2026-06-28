@@ -226,7 +226,7 @@ export default function ProjectCreationFlow({
                     </div>
 
                     <div className="flex flex-col gap-3">
-                      {uploadedFiles.map((file, i) => {
+                      {uploadedFiles.map((file) => {
                         const isSelected = selectedFiles.has(file);
                         return (
                           <motion.div 
